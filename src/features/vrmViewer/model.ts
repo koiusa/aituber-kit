@@ -11,6 +11,7 @@ import { VRMLookAtSmootherLoaderPlugin } from '@/lib/VRMLookAtSmootherLoaderPlug
 import { LipSync } from '../lipSync/lipSync'
 import { EmoteController } from '../emoteController/emoteController'
 import { Talk } from '../messages/messages'
+import { MouseTracker } from '../intraction/mouseTracker'
 
 /**
  * 3Dキャラクターを管理するクラス
@@ -19,6 +20,7 @@ export class Model {
   public vrm?: VRM | null
   public mixer?: THREE.AnimationMixer
   public emoteController?: EmoteController
+  public mouseTracker?: MouseTracker
 
   private _lookAtTargetParent: THREE.Object3D
   private _lipSync?: LipSync
@@ -46,6 +48,9 @@ export class Model {
     this.mixer = new THREE.AnimationMixer(vrm.scene)
 
     this.emoteController = new EmoteController(vrm, this._lookAtTargetParent)
+
+    this.mouseTracker = new MouseTracker(this._lookAtTargetParent)
+    gltf.userData.vrmLookAt.userTarget = this._lookAtTargetParent
   }
 
   public unLoadVrm() {
