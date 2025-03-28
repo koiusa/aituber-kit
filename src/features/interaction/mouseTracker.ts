@@ -19,6 +19,10 @@ export class MouseTracker {
     this._mouse.y = -(event.clientY / window.innerHeight) * 2 + 1
   }
 
+  public getMousePositionInScreen(): THREE.Vector2 {
+    return this._mouse.clone()
+  }
+
   public getMousePositionInWorld(): THREE.Vector3 {
     // マウス位置を3D空間に変換
     this._raycaster.setFromCamera(this._mouse, this._camera)
