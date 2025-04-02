@@ -23,11 +23,7 @@ export class MouseInteraction {
     
       private _onMouseClick(event: MouseEvent) {
             if (this.isHit()) {
-                  // const files: any = glob.sync(buildUrl('/animations/interaction/*.vrma'))
-                  // glob(buildUrl('/animations/interaction/*.vrma'), (err: any, files: any) => {
-                  //           console.log("Selected TypeScript files synchronously:", files);
-                  //       });
-                  this.interaction('/animations/interaction/VRMA_04.vrma')
+                  this.interaction('/animations/interaction/idle_tired.vrma')
             }
       }
 
@@ -44,7 +40,7 @@ export class MouseInteraction {
       }
 
       private async defaultAnimation() {
-            const vrma = await loadVRMAnimation(buildUrl('/animations/idle_loop.vrma'))
+            const vrma = await loadVRMAnimation(buildUrl('/animations/idle_loop_custom.vrma'))
             if (vrma) this._model.loadAnimation(vrma)
       }
 }
