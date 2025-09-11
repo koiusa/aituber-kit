@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link' // Link をインポート
 import settingsStore from '@/features/stores/settings'
-import { isMultiModalModel } from '@/features/constants/aiModels'
+import { isMultiModalAvailable } from '@/features/constants/aiModels'
 import menuStore from '@/features/stores/menu'
 import slideStore from '@/features/stores/slide'
 import { TextButton } from '../textButton'
@@ -13,6 +13,9 @@ const Slide = () => {
   const { t } = useTranslation()
   const selectAIService = settingsStore((s) => s.selectAIService)
   const selectAIModel = settingsStore((s) => s.selectAIModel)
+  const enableMultiModal = settingsStore((s) => s.enableMultiModal)
+  const multiModalMode = settingsStore((s) => s.multiModalMode)
+  const customModel = settingsStore((s) => s.customModel)
 
   const slideMode = settingsStore((s) => s.slideMode)
 
@@ -71,7 +74,15 @@ const Slide = () => {
       <div className="my-2">
         <TextButton
           onClick={toggleSlideMode}
-          disabled={!isMultiModalModel(selectAIService, selectAIModel)}
+          disabled={
+            !isMultiModalAvailable(
+              selectAIService,
+              selectAIModel,
+              enableMultiModal,
+              multiModalMode,
+              customModel
+            )
+          }
         >
           {slideMode ? t('StatusOn') : t('StatusOff')}
         </TextButton>
@@ -107,7 +118,7 @@ const Slide = () => {
                 <a
                   target="_blank" // 新しいタブで開く
                   rel="noopener noreferrer"
-                  className="inline-flex items-center px-3 py-2 text-sm bg-primary hover:bg-primary-hover rounded-3xl text-white font-bold transition-colors duration-200 whitespace-nowrap"
+                  className="inline-flex items-center px-3 py-2 text-sm bg-primary hover:bg-primary-hover rounded-3xl text-theme font-bold transition-colors duration-200 whitespace-nowrap"
                 >
                   {t('EditSlideScripts')}
                   <Image
@@ -121,9 +132,13 @@ const Slide = () => {
               </Link>
             )}
           </div>
-          {isMultiModalModel(selectAIService, selectAIModel) && (
-            <SlideConvert onFolderUpdate={handleFolderUpdate} />
-          )}
+          {isMultiModalAvailable(
+            selectAIService,
+            selectAIModel,
+            enableMultiModal,
+            multiModalMode,
+            customModel
+          ) && <SlideConvert onFolderUpdate={handleFolderUpdate} />}
         </>
       )}
     </>

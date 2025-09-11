@@ -3,6 +3,7 @@ import { useRouter } from 'next/router'
 import slideStore from '@/features/stores/slide'
 import SlideContent from '@/components/slideContent'
 import SlideControls from '@/components/slideControls'
+import toastStore from '@/features/stores/toast'
 
 // goToSlide関数はslides.tsxからインポートするか、ここで再定義
 export const goToSlide = (index: number) => {
@@ -14,6 +15,7 @@ export const goToSlide = (index: number) => {
 const SlideEditorPage: React.FC = () => {
   const router = useRouter()
   const { slideName } = router.query
+  const { addToast } = toastStore()
 
   const [marpitContainer, setMarpitContainer] = useState<Element | null>(null)
   const currentSlide = slideStore((state) => state.currentSlide)
@@ -367,13 +369,21 @@ const SlideEditorPage: React.FC = () => {
 
       await response.json()
       console.log('Save successful')
-      alert('Scripts and supplementary information have been saved.')
+      addToast({
+        message: 'Scripts and supplementary information have been saved.',
+        type: 'success',
+        duration: 5000,
+      })
 
       setInitialScripts(scripts)
       setInitialSupplementContent(supplementContent)
     } catch (error) {
       console.error('Error saving script:', error)
-      alert('Failed to save scripts and supplementary information.')
+      addToast({
+        message: 'Failed to save scripts and supplementary information.',
+        type: 'error',
+        duration: 5000,
+      })
     }
   }, [slideName, scripts, supplementContent])
 
@@ -478,7 +488,7 @@ const SlideEditorPage: React.FC = () => {
         <p>{errorMessage}</p>
         <button
           onClick={() => router.back()}
-          className="mt-4 px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-700"
+          className="mt-4 px-4 py-2 bg-gray-500 text-theme rounded hover:bg-gray-700"
         >
           戻る
         </button>
@@ -488,9 +498,9 @@ const SlideEditorPage: React.FC = () => {
 
   // 通常の表示
   return (
-    <div className="flex flex-col items-center text-black min-h-screen bg-purple-50 py-8">
+    <div className="flex flex-col items-center text-theme-default min-h-screen bg-theme py-8">
       <div className="w-full px-4 md:px-8">
-        <h1 className="text-text-primary text-3xl font-bold mb-8 text-center">
+        <h1 className="text-3xl font-bold mb-8 text-center">
           スライド編集: {slideName}
         </h1>
         <div
@@ -516,7 +526,7 @@ const SlideEditorPage: React.FC = () => {
           <div className="bg-white p-6 rounded-xl">
             {/* セリフ編集 */}
             <div className="mb-6">
-              <h2 className="text-text-primary text-lg font-bold mb-3">
+              <h2 className="text-lg font-bold mb-3">
                 ページ {currentSlide + 1} のセリフ
               </h2>
               <textarea
@@ -533,7 +543,7 @@ const SlideEditorPage: React.FC = () => {
                 }}
                 // onBlur は不要になったので削除
                 rows={4}
-                className="border border-slate-200 hover:border-indigo-400 hover:bg-indigo-50 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:bg-white rounded-xl w-full px-4 text-text-primary text-base font-medium transition-all duration-200"
+                className="border border-slate-200 hover:border-indigo-400 hover:bg-indigo-50 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:bg-white rounded-xl w-full px-4 font-medium transition-all duration-200"
                 style={{
                   lineHeight: '1.5',
                   padding: '12px 16px',
@@ -544,9 +554,7 @@ const SlideEditorPage: React.FC = () => {
             </div>
             {/* 追加情報編集 */}
             <div className="mb-6">
-              <h2 className="text-text-primary text-lg font-bold mb-3">
-                追加情報
-              </h2>
+              <h2 className="text-lg font-bold mb-3">追加情報</h2>
               <textarea
                 value={currentNotes}
                 onChange={handleNotesChange}
@@ -561,7 +569,7 @@ const SlideEditorPage: React.FC = () => {
                 }}
                 // onBlur は不要になったので削除
                 rows={3}
-                className="border border-slate-200 hover:border-indigo-400 hover:bg-indigo-50 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:bg-white rounded-xl w-full px-4 text-text-primary text-base font-medium transition-all duration-200"
+                className="border border-slate-200 hover:border-indigo-400 hover:bg-indigo-50 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:bg-white rounded-xl w-full px-4 font-medium transition-all duration-200"
                 style={{
                   lineHeight: '1.5',
                   padding: '12px 16px',
@@ -572,14 +580,14 @@ const SlideEditorPage: React.FC = () => {
             </div>
             {/* スライド全体の補足情報編集 */}
             <div className="mb-6">
-              <h2 className="text-text-primary text-lg font-bold mb-3">
+              <h2 className="text-lg font-bold mb-3">
                 スライド全体の補足情報 (supplement.txt)
               </h2>
               <textarea
                 value={supplementContent}
                 onChange={handleSupplementChange}
                 rows={5}
-                className="border border-slate-200 hover:border-indigo-400 hover:bg-indigo-50 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:bg-white rounded-xl w-full px-4 text-text-primary text-base font-medium transition-all duration-200"
+                className="border border-slate-200 hover:border-indigo-400 hover:bg-indigo-50 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:bg-white rounded-xl w-full px-4 font-medium transition-all duration-200"
                 style={{
                   lineHeight: '1.5',
                   padding: '12px 16px',
@@ -607,7 +615,7 @@ const SlideEditorPage: React.FC = () => {
               {/* 保存ボタン */}
               <button
                 onClick={handleSave}
-                className={`px-6 py-3 rounded-xl font-bold text-white transition-colors duration-200 ${
+                className={`px-6 py-3 rounded-xl font-bold text-theme transition-colors duration-200 ${
                   !slideName || !isDirty
                     ? 'bg-gray-400 cursor-not-allowed'
                     : 'bg-primary hover:bg-primary-hover'

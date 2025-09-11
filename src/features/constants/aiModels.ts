@@ -31,14 +31,18 @@ const modelDefinitions: Record<AIService, ModelInfo[]> = {
     { name: 'chatgpt-4o-latest', multiModal: true },
   ],
   anthropic: [
-    { name: 'claude-4-opus-20250514', multiModal: true },
-    { name: 'claude-4-sonnet-20250514', multiModal: true },
+    { name: 'claude-opus-4-1-20250805', multiModal: true },
+    { name: 'claude-opus-4-20250514', multiModal: true },
+    { name: 'claude-sonnet-4-20250514', multiModal: true },
     { name: 'claude-3-7-sonnet-20250219', multiModal: true },
     { name: 'claude-3-5-sonnet-20241022', multiModal: true, isDefault: true },
     { name: 'claude-3-5-sonnet-20240620', multiModal: true },
     { name: 'claude-3-5-haiku-20241022', multiModal: true },
   ],
   google: [
+    { name: 'gemini-2.5-pro', multiModal: true },
+    { name: 'gemini-2.5-flash', multiModal: true },
+    { name: 'gemini-2.5-flash-lite', multiModal: true },
     { name: 'gemini-2.5-pro-preview-05-06', multiModal: true },
     { name: 'gemini-2.5-flash-preview-04-17', multiModal: true },
     { name: 'gemini-2.5-pro-exp-03-25', multiModal: true },
@@ -265,8 +269,91 @@ export function isMultiModalModel(service: AIService, model: string): boolean {
   return multiModalModels[service]?.includes(model) || false
 }
 
+/**
+ * トグルボタンの状態を考慮してマルチモーダル機能が利用可能かどうかを判定する
+ * @param service AIサービス名
+ * @param model モデル名
+ * @param enableMultiModal マルチモーダルトグルの状態
+ * @param customModel カスタムモデルかどうか
+ * @returns マルチモーダル機能が利用可能な場合はtrue
+ */
+export function isMultiModalModelWithToggle(
+  service: AIService,
+  model: string,
+  enableMultiModal: boolean,
+  customModel?: boolean
+): boolean {
+  // 一部のサービスではモデル単位での判定ができないため、トグルボタンの状態のみで判定
+  if (
+    ['azure', 'openrouter', 'lmstudio', 'ollama', 'custom-api'].includes(
+      service
+    )
+  ) {
+    return enableMultiModal
+  }
+
+  // カスタムモデルの場合は、トグルボタンの状態で判定
+  if (customModel) {
+    return enableMultiModal
+  }
+
+  // その他のサービスは従来通りモデル定義に基づく判定
+  return isMultiModalModel(service, model)
+}
+
+/**
+ * マルチモーダル機能が実際に使用可能かどうかを包括的に判定する
+ * モデル対応状況、設定、利用モードの全てを考慮する
+ * @param service AIサービス名
+ * @param model モデル名
+ * @param enableMultiModal マルチモーダルトグルの状態
+ * @param multiModalMode マルチモーダル利用モード
+ * @param customModel カスタムモデルかどうか
+ * @returns マルチモーダル機能が使用可能な場合はtrue
+ */
+export function isMultiModalAvailable(
+  service: AIService,
+  model: string,
+  enableMultiModal: boolean,
+  multiModalMode: 'ai-decide' | 'always' | 'never',
+  customModel?: boolean
+): boolean {
+  // 利用モードが'never'の場合は常にfalse
+  if (multiModalMode === 'never') {
+    return false
+  }
+
+  // モデル・設定による基本的な判定
+  return isMultiModalModelWithToggle(
+    service,
+    model,
+    enableMultiModal,
+    customModel
+  )
+}
+
 export const googleSearchGroundingModels = [
   'gemini-1.5-flash-latest',
   'gemini-1.5-pro-latest',
   'gemini-1.5-flash-8b-latest',
+  'gemini-1.5-flash',
+  'gemini-1.5-pro',
+  'gemini-1.5-flash-8b',
 ] as const
+
+/**
+ * モデルが検索グラウンディング機能をサポートしているかどうかを判定する
+ * @param service AIサービス名
+ * @param model モデル名
+ * @returns 検索グラウンディング機能をサポートしている場合はtrue
+ */
+export function isSearchGroundingModel(
+  service: AIService,
+  model: string
+): boolean {
+  // 現在はGoogleのみサポート
+  if (service === 'google') {
+    return (googleSearchGroundingModels as readonly string[]).includes(model)
+  }
+  return false
+}

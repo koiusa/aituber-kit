@@ -11,6 +11,7 @@ import Live2DViewer from '@/components/live2DViewer'
 import { Toasts } from '@/components/toasts'
 import { WebSocketManager } from '@/components/websocketManager'
 import CharacterPresetMenu from '@/components/characterPresetMenu'
+import ImageOverlay from '@/components/ImageOverlay'
 import homeStore from '@/features/stores/home'
 import settingsStore from '@/features/stores/settings'
 import '@/lib/i18n'
@@ -26,7 +27,9 @@ const Home = () => {
   const bgUrl =
     (webcamStatus || captureStatus) && useVideoAsBackground
       ? ''
-      : `url(${buildUrl(backgroundImageUrl)})`
+      : backgroundImageUrl === 'green'
+        ? ''
+        : `url(${buildUrl(backgroundImageUrl)})`
   const messageReceiverEnabled = settingsStore((s) => s.messageReceiverEnabled)
   const modelType = settingsStore((s) => s.modelType)
   const { t } = useTranslation()
@@ -86,10 +89,17 @@ const Home = () => {
     return () => {
       window.removeEventListener('keydown', handleKeyDown)
     }
-  }, [])
+  }, [characterPresets, t])
+
+  const backgroundStyle =
+    (webcamStatus || captureStatus) && useVideoAsBackground
+      ? {}
+      : backgroundImageUrl === 'green'
+        ? { backgroundColor: '#00FF00' }
+        : { backgroundImage: bgUrl }
 
   return (
-    <div className="h-[100svh] bg-cover" style={{ backgroundImage: bgUrl }}>
+    <div className="h-[100svh] bg-cover" style={backgroundStyle}>
       <Meta />
       <Introduction />
       {modelType === 'vrm' ? <VrmViewer /> : <Live2DViewer />}
@@ -101,6 +111,7 @@ const Home = () => {
       <WebSocketManager />
       <YoutubeManager />
       <CharacterPresetMenu />
+      <ImageOverlay />
     </div>
   )
 }

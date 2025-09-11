@@ -7,9 +7,7 @@ const AdvancedSettings = () => {
     (s) => s.includeTimestampInUserMessage
   )
   const useVideoAsBackground = settingsStore((s) => s.useVideoAsBackground)
-  const showCharacterPresetMenu = settingsStore(
-    (s) => s.showCharacterPresetMenu
-  )
+  const showQuickMenu = settingsStore((s) => s.showQuickMenu)
 
   const { t } = useTranslation()
 
@@ -17,7 +15,7 @@ const AdvancedSettings = () => {
     <div className="mb-10">
       <div className="mb-6 grid-cols-2">
         <div className="mb-4 text-xl font-bold">{t('LocalStorageReset')}</div>
-        <div className="my-4 text-base">{t('LocalStorageResetInfo')}</div>
+        <div className="my-4">{t('LocalStorageResetInfo')}</div>
         <TextButton
           onClick={() => {
             settingsStore.persist.clearStorage()
@@ -44,18 +42,16 @@ const AdvancedSettings = () => {
         </div>
       </div>
       <div className="my-6">
-        <div className="my-4 text-xl font-bold">
-          {t('ShowCharacterPresetMenu')}
-        </div>
+        <div className="my-4 text-xl font-bold">{t('ShowQuickMenu')}</div>
         <div className="my-2">
           <TextButton
             onClick={() =>
               settingsStore.setState((s) => ({
-                showCharacterPresetMenu: !s.showCharacterPresetMenu,
+                showQuickMenu: !s.showQuickMenu,
               }))
             }
           >
-            {showCharacterPresetMenu ? t('StatusOn') : t('StatusOff')}
+            {showQuickMenu ? t('StatusOn') : t('StatusOff')}
           </TextButton>
         </div>
       </div>
@@ -63,7 +59,7 @@ const AdvancedSettings = () => {
         <div className="my-4 text-xl font-bold">
           {t('IncludeTimestampInUserMessage')}
         </div>
-        <div className="my-4 text-base whitespace-pre-line">
+        <div className="my-4 whitespace-pre-line">
           {t('IncludeTimestampInUserMessageInfo')}
         </div>
         <div className="my-2">
