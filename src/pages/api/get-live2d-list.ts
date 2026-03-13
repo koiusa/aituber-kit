@@ -1,6 +1,12 @@
 import { NextApiRequest, NextApiResponse } from 'next'
 import fs from 'fs'
 import path from 'path'
+import {
+  isLive2DEnabled,
+  createLive2DRestrictionErrorResponse,
+} from '@/utils/live2dRestriction'
+import { isRestrictedMode } from '@/utils/restrictedMode'
+import assetManifest from '@/constants/assetManifest.json'
 
 interface Live2DModelInfo {
   path: string
@@ -13,6 +19,14 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
+  if (!isLive2DEnabled()) {
+    return res.status(403).json(createLive2DRestrictionErrorResponse())
+  }
+
+  if (isRestrictedMode()) {
+    return res.status(200).json(assetManifest.live2d)
+  }
+
   const live2dDir = path.join(process.cwd(), 'public/live2d')
 
   try {

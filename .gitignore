@@ -51,8 +51,7 @@ certificates
 # Live2D files
 public/live2d/*
 !public/live2d/nike01
-public/scripts/*
-!public/scripts/.gitkeep
+public/scripts/live2dcubismcore.min.js
 
 # VRM files
 /public/vrm/*
@@ -67,8 +66,31 @@ public/scripts/*
 /public/backgrounds/*
 !/public/backgrounds/bg-c.png
 
+# PNGTuber files
+public/pngtuber/*
+!public/pngtuber/nike01
+!public/pngtuber/nike02
+
 /public/images/uploaded/*
 !/public/images/placed/.keep
 
 .claude/settings.local.json
 
+.kiro/specs/*
+
+# Playwright reports
+/reports
+
+# Cloudflare
+.open-next
+.public-stash
+
+aituber-kit-lp/*
+aituber-kit-docs/*
+promo-video/*
+.claude/skills/remotion-*
+
+# Local caches
+.mypy_cache
+.swc
+.wrangler

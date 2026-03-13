@@ -1,23 +1,24 @@
-import { Message } from '@/features/messages/messages'
-import { NextRequest } from 'next/server'
-import { handleCustomApi } from '../services/customApi'
+import { NextApiRequest, NextApiResponse } from 'next'
+import { handleCustomApi } from '@/lib/api-services/customApi'
+import { pipeResponse } from '@/utils/pipeResponse'
 
 export const config = {
-  runtime: 'edge',
+  api: {
+    bodyParser: {
+      sizeLimit: '10mb',
+    },
+  },
 }
 
-export default async function handler(req: NextRequest) {
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
   if (req.method !== 'POST') {
-    return new Response(
-      JSON.stringify({
-        error: 'Method Not Allowed',
-        errorCode: 'METHOD_NOT_ALLOWED',
-      }),
-      {
-        status: 405,
-        headers: { 'Content-Type': 'application/json' },
-      }
-    )
+    return res.status(405).json({
+      error: 'Method Not Allowed',
+      errorCode: 'METHOD_NOT_ALLOWED',
+    })
   }
 
   const {
@@ -27,10 +28,10 @@ export default async function handler(req: NextRequest) {
     customApiHeaders = '{}',
     customApiBody = '{}',
     customApiIncludeMimeType = false,
-  } = await req.json()
+  } = req.body
 
   try {
-    return await handleCustomApi(
+    const response = await handleCustomApi(
       messages,
       customApiUrl,
       customApiHeaders === '' ? '{}' : customApiHeaders,
@@ -38,18 +39,29 @@ export default async function handler(req: NextRequest) {
       stream,
       customApiIncludeMimeType
     )
+
+    return pipeResponse(response, res)
   } catch (error) {
     console.error('Error in Custom API call:', error)
 
-    return new Response(
-      JSON.stringify({
-        error: 'Unexpected Error',
-        errorCode: 'CustomAPIError',
-      }),
-      {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' },
-      }
-    )
+    if (error instanceof Response) {
+      return pipeResponse(error, res)
+    }
+
+    if (error instanceof Error) {
+      const isClientError =
+        error instanceof TypeError ||
+        error.message.includes('Invalid URL') ||
+        error.message.includes('customApiUrl')
+      return res.status(isClientError ? 400 : 500).json({
+        error: error.message,
+        errorCode: isClientError ? 'CustomAPIInvalidRequest' : 'CustomAPIError',
+      })
+    }
+
+    return res.status(500).json({
+      error: 'Unexpected Error',
+      errorCode: 'CustomAPIError',
+    })
   }
 }

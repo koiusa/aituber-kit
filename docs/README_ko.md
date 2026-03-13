@@ -2,6 +2,8 @@
 
 <img style="max-width: 100%;" src="../public/ogp.png">
 
+<p align="center"><strong>AI 캐릭터 구축을 위한 올인원 툴킷</strong></p>
+
 **공지사항: 본 프로젝트는 버전 v2.0.0부터 커스텀 라이선스를 채택하고 있습니다. 상업적 목적으로 사용하시는 경우 [이용약관](#이용약관) 섹션을 확인해 주시기 바랍니다.**
 
 <p align="center">
@@ -36,10 +38,17 @@
    </h3>
 </div>
 
+<div align="center">
+   <h3>
+      🚀 <a href="https://promotion.aituberkit.com/">프로모션 사이트</a> 🚀
+   </h3>
+</div>
+
 <h3 align="center">
    <a href="../README.md">日本語</a>｜
    <a href="./README_en.md">English</a>｜
-   <a href="./README_zh.md">中文</a>｜
+   <a href="./README_zh-CN.md">简体中文</a>｜
+   <a href="./README_zh-TW.md">繁體中文</a>｜
    <a href="./README_pl.md">Polski</a>
 </h3>
 
@@ -52,10 +61,6 @@ AITuberKit은 누구나 쉽게 AI 캐릭터와 채팅할 수 있는 웹 애플�
 
 자세한 사용 방법과 설정 방법은 [문서 사이트](https://docs.aituberkit.com/en/)를 참조해 주시기 바랍니다.
 
-## Star History
-
-[![Star History Chart](https://api.star-history.com/svg?repos=tegnike/aituber-kit&type=Date)](https://star-history.com/#tegnike/aituber-kit&Date)
-
 ## 주요 기능
 
 ### 1. AI 캐릭터와의 대화
@@ -63,27 +68,40 @@ AITuberKit은 누구나 쉽게 AI 캐릭터와 채팅할 수 있는 웹 애플�
 - 각종 LLM의 API 키를 사용하여 AI 캐릭터와 쉽게 대화 가능
 - 멀티모달 지원으로 카메라 영상이나 업로드한 이미지를 인식하여 답변 생성
 - 최근 대화 내용을 기억으로 유지
+- RAG 기반 장기 기억으로 과거 대화를 컨텍스트에 활용
 
 ### 2. AITuber 방송
 
 - YouTube 방송 댓글을 가져와 AI 캐릭터가 자동으로 응답
+- 댓글 소스로 YouTube API / 완코메(OneComme) 선택 가능
 - 대화 지속 모드로 댓글이 없어도 자발적으로 발언 가능
-- "#"으로 시작하는 댓글은 읽지 않는 기능
+- 댓글 가져오기 간격 및 사용자 표시 이름 커스터마이징 지원
 
-### 3. 기타 기능
+### 3. 데모 단말기 · 디지털 사이니지
 
-- **외부 연동 모드**: WebSocket으로 서버 앱과 연동하여 더 고도한 기능 구현
-- **슬라이드 모드**: AI 캐릭터가 슬라이드를 자동으로 발표하는 모드
+- **데모 단말기 모드**: 디지털 사이니지용 풀스크린 표시. 패스코드 인증, NG 단어 필터, 입력 길이 제한 지원
+- **인감 검지**: 카메라 얼굴 검출을 통한 방문자 자동 감지. 인사 · 작별 문구 자동 재생 지원
+- **아이들 모드**: 대화가 끊겼을 때 캐릭터가 자동으로 발화. 정형 문구, 시간대별 인사, AI 자동 생성의 3가지 소스 지원
+
+### 4. 고급 대화 모드
+
 - **Realtime API**: OpenAI의 Realtime API를 사용한 저지연 대화와 함수 실행
 - **오디오 모드**: OpenAI의 Audio API 기능을 활용한 자연스러운 음성 대화
-- **메시지 수신 기능**: 전용 API를 통해 외부에서 지시를 받아 AI 캐릭터가 발언하도록 하는 것이 가능
+- **Reasoning 모드**: AI의 사고 과정을 표시하고 추론 파라미터 설정 가능
+
+### 5. 연동 · 확장
+
+- **외부 연동 모드**: WebSocket으로 서버 앱과 연동하여 텍스트 및 이미지 교환을 포함한 더 고도한 기능 구현
+- **슬라이드 모드**: AI 캐릭터가 슬라이드를 자동으로 발표하는 모드
+- **메시지 수신 기능**: 전용 API를 통해 외부에서 텍스트와 이미지를 받아 AI 캐릭터가 발언하도록 하는 것이 가능
 
 ## 지원 모델 및 서비스
 
 ### 캐릭터 모델
 
-- **3D 모델**: VRM 파일
+- **3D 모델**: VRM 파일(모션 태그를 통한 포즈 및 제스처 제어 지원)
 - **2D 모델**: Live2D 파일(Cubism 3 이상)
+- **모션 PNGTuber**: 동영상 기반 캐릭터 표시([MotionPNGTuber](https://github.com/rotejin/MotionPNGTuber))
 
 ### 지원 LLM
 
@@ -96,8 +114,12 @@ AITuberKit은 누구나 쉽게 AI 캐릭터와 채팅할 수 있는 웹 애플�
 - Mistral AI
 - Perplexity
 - Fireworks
-- 로컬 LLM
+- LM Studio
+- Ollama
 - Dify
+- xAI
+- DeepSeek
+- OpenRouter
 
 ### 지원 음성 합성 엔진
 
@@ -112,14 +134,13 @@ AITuberKit은 누구나 쉽게 AI 캐릭터와 채팅할 수 있는 웹 애플�
 - ElevenLabs
 - OpenAI
 - Azure OpenAI
-- 니지보이스
 
 ## 퀵 스타트
 
 ### 개발 환경
 
-- Node.js: ^20.0.0
-- npm: ^10.0.0
+- Node.js: 24.x
+- npm: ^11.6.2
 
 ### 설치 순서
 
@@ -141,21 +162,99 @@ cd aituber-kit
 npm install
 ```
 
-4. 개발 모드로 애플리케이션을 실행합니다.
-
-```bash
-npm run dev
-```
-
-5. URL을 엽니다. [http://localhost:3000](http://localhost:3000)
-
-6. 필요에 따라 .env 파일을 생성합니다.
+4. 필요에 따라 .env 파일을 생성합니다.
 
 ```bash
 cp .env.example .env
 ```
 
+5. 개발 모드로 애플리케이션을 실행합니다.
+
+```bash
+npm run dev
+```
+
+6. URL을 엽니다. [http://localhost:3000](http://localhost:3000)
+
+### 간편 실행
+
+초기 설정 완료 후에는 실행 스크립트를 더블 클릭하는 것만으로 실행할 수 있습니다.
+
+- **Windows**: `LAUNCH.bat`를 더블 클릭
+- **macOS**: `LAUNCH.command`를 더블 클릭(실행 권한이 없는 경우 `chmod +x LAUNCH.command`를 실행하세요)
+
 자세한 설정 방법과 사용 방법은 [문서 사이트](https://docs.aituberkit.com/en/)를 참조해 주시기 바랍니다.
+
+### Docker로 실행하는 경우
+
+1. `.env` 파일을 생성합니다.
+
+```bash
+cp .env.example .env
+```
+
+2. Docker Compose로 실행합니다.
+
+```bash
+docker compose up -d
+```
+
+3. URL을 엽니다. [http://localhost:3000](http://localhost:3000)
+
+중지하는 경우:
+
+```bash
+docker compose down
+```
+
+## 배포
+
+### Vercel
+
+1. [Vercel](https://vercel.com/) 계정을 생성하고 GitHub 리포지토리를 가져옵니다.
+
+2. Vercel 대시보드에서 환경 변수를 설정합니다. 필요한 API 키(`OPENAI_API_KEY` 등)를 추가하세요. 설정 가능한 환경 변수는 `.env.example`을 참조하세요.
+
+3. 배포는 프로젝트 설정의 Production Branch에 푸시할 때 자동으로 실행됩니다(기본값은 `main` 브랜치).
+
+### Cloudflare Workers
+
+Cloudflare Workers로의 배포를 지원합니다. [OpenNext](https://opennext.js.org/)를 사용하여 Cloudflare Workers에서 Next.js 애플리케이션을 실행합니다.
+
+1. [Wrangler CLI](https://developers.cloudflare.com/workers/wrangler/)를 설치하고 Cloudflare 계정에 로그인합니다.
+
+2. 필요에 따라 `wrangler.jsonc`의 프로젝트 이름을 변경합니다.
+
+3. 환경 변수를 설정합니다.
+   - **프론트엔드 설정(`NEXT_PUBLIC_*`)**: `.env` 파일에 작성합니다. 빌드 시 클라이언트 코드에 포함됩니다.
+   - **서버 사이드 API 키(`OPENAI_API_KEY` 등)**: Wrangler 시크릿으로 설정합니다.
+
+```bash
+cp .env.example .env
+# .env를 편집하여 NEXT_PUBLIC_*의 값을 설정
+
+# 서버 사이드 API 키를 Wrangler 시크릿으로 설정
+npx wrangler secret put OPENAI_API_KEY
+```
+
+필요한 API 키마다 `wrangler secret put`를 반복합니다.
+
+4. 로컬 프리뷰로 동작을 확인합니다.
+
+```bash
+npm run preview:cloudflare
+```
+
+5. 프로덕션 환경에 배포합니다.
+
+```bash
+npm run deploy:cloudflare
+```
+
+**주의사항:**
+
+- 빌드 시 `NEXT_PUBLIC_RESTRICTED_MODE=true`가 자동 설정되어 파일 시스템 API가 비활성화됩니다. 에셋 목록은 빌드 시 생성되는 매니페스트에서 제공됩니다.
+- `public/` 하위의 25MB 초과 파일이나 비ASCII 파일명의 파일은 배포 대상에서 자동 제외됩니다.
 
 ## ⚠️ 보안에 관한 중요 주의사항
 
@@ -191,9 +290,6 @@ cp .env.example .env
   </a>
   <a href="https://github.com/coderabbitai" title="coderabbitai">
     <img src="https://github.com/coderabbitai.png" width="40" height="40" alt="coderabbitai">
-  </a>
-  <a href="https://github.com/ai-bootcamp-tokyo" title="ai-bootcamp-tokyo">
-    <img src="https://github.com/ai-bootcamp-tokyo.png" width="40" height="40" alt="ai-bootcamp-tokyo">
   </a>
   <a href="https://github.com/wmoto-ai" title="wmoto-ai">
     <img src="https://github.com/wmoto-ai.png" width="40" height="40" alt="wmoto-ai">
@@ -265,7 +361,7 @@ cp .env.example .env
     <img src="https://github.com/uwaguchi.png" width="40" height="40" alt="uwaguchi">
   </a>
   <a href="https://x.com/M1RA_A_Project" title="M1RA_A_Project">
-    <img src="https://pbs.twimg.com/profile_images/1903385253504507904/ceBSG9Wl_400x400.jpg" width="40" height="40" alt="M1RA_A_Project">
+    <img src="https://pbs.twimg.com/profile_images/2013543177253249025/AKHpzZde_400x400.jpg" width="40" height="40" alt="M1RA_A_Project">
   </a>
   <a href="https://github.com/teruPP" title="teruPP">
     <img src="https://github.com/teruPP.png" width="40" height="40" alt="teruPP">
@@ -285,9 +381,35 @@ cp .env.example .env
   <a href="https://github.com/schroneko" title="schroneko">
     <img src="https://github.com/schroneko.png" width="40" height="40" alt="schroneko">
   </a>
+  <a href="https://github.com/ParachutePenguin" title="ParachutePenguin">
+    <img src="https://github.com/ParachutePenguin.png" width="40" height="40" alt="ParachutePenguin">
+  </a>
+  <a href="https://github.com/eruma" title="eruma">
+    <img src="https://github.com/eruma.png" width="40" height="40" alt="eruma">
+  </a>
+  <a href="https://x.com/_cityside" title="_cityside">
+    <img src="https://pbs.twimg.com/profile_images/1987812690254082048/KyWdQTT4_400x400.jpg" width="40" height="40" alt="_cityside">
+  </a>
+  <a href="https://github.com/nyapan-mohy" title="nyapan-mohy">
+    <img src="https://github.com/nyapan-mohy.png" width="40" height="40" alt="nyapan-mohy">
+  </a>
+  <a href="https://github.com/hattoritatsuya" title="hattoritatsuya">
+    <img src="https://github.com/hattoritatsuya.png" width="40" height="40" alt="hattoritatsuya">
+  </a>
+  <a href="https://github.com/sa1p" title="sa1p">
+    <img src="https://github.com/sa1p.png" width="40" height="40" alt="sa1p">
+  </a>
 </p>
 
 기타 프라이빗 스폰서 다수
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=tegnike/aituber-kit&type=Date)](https://star-history.com/#tegnike/aituber-kit&Date)
+
+## 감사의 말
+
+본 프로젝트는 pixiv 주식회사가 공개한 [ChatVRM](https://github.com/pixiv/ChatVRM)을 포크하여 개발되었습니다. 훌륭한 오픈소스 프로젝트를 공개해 주신 pixiv 주식회사에 깊이 감사드립니다.
 
 ## 기여
 
@@ -321,7 +443,6 @@ AITuberKit의 개발에 관심을 가져주셔서 감사합니다. 커뮤니티�
 본 프로젝트는 버전 v2.0.0부터 **커스텀 라이선스**를 채택하고 있습니다.
 
 - **무상 이용**
-
   - 영리 목적 이외의 개인 사용, 교육 목적, 비영리 목적의 사용은 무상으로 이용 가능합니다.
 
 - **상업용 라이선스**

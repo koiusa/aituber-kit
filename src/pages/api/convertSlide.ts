@@ -12,6 +12,10 @@ import { z } from 'zod'
 
 import { AIService } from '@/features/constants/settings'
 import { isMultiModalModel } from '@/features/constants/aiModels'
+import {
+  isRestrictedMode,
+  createRestrictedModeErrorResponse,
+} from '@/utils/restrictedMode'
 
 type AIServiceConfig = Record<AIService, () => any>
 
@@ -149,7 +153,7 @@ interface SlideLineResponse {
   page?: number
 }
 
-async function createSlideLine(
+export async function createSlideLine(
   imageBase64: string,
   apiKey: string,
   aiService: string,
@@ -232,7 +236,6 @@ async function createSlideLine(
           },
         ],
         output: 'no-schema',
-        mode: 'json',
       })
     }
   } catch (error) {
@@ -248,6 +251,16 @@ async function createSlideLine(
 }
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' })
+  }
+
+  if (isRestrictedMode()) {
+    return res
+      .status(403)
+      .json(createRestrictedModeErrorResponse('convert-slide'))
+  }
+
   const form = formidable({ multiples: true })
 
   form.parse(req, async (err, fields, files) => {
@@ -355,8 +368,10 @@ function getLanguage(selectLanguage: string | undefined) {
       return 'Japanese'
     case 'en':
       return 'English'
-    case 'zh':
-      return 'Chinese'
+    case 'zh-CN':
+      return 'Simplified Chinese'
+    case 'zh-TW':
+      return 'Traditional Chinese'
     case 'ko':
       return 'Korean'
     case 'vi':

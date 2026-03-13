@@ -2,6 +2,8 @@
 
 <img style="max-width: 100%;" src="../public/ogp.png">
 
+<p align="center"><strong>Kompleksowy zestaw narzędzi do budowy postaci AI</strong></p>
+
 **Ogłoszenie: Od wersji v2.0.0 projekt ten przyjął niestandardową licencję. W przypadku użytku komercyjnego prosimy o zapoznanie się z sekcją [Warunki użytkowania](#warunki-użytkowania).**
 
 <p align="center">
@@ -36,10 +38,17 @@
    </h3>
 </div>
 
+<div align="center">
+   <h3>
+      🚀 <a href="https://promotion.aituberkit.com/">Strona promocyjna</a> 🚀
+   </h3>
+</div>
+
 <h3 align="center">
    <a href="../README.md">日本語</a>｜
    <a href="./README_en.md">English</a>｜
-   <a href="./README_zh.md">中文</a>｜
+   <a href="./README_zh-CN.md">简体中文</a>｜
+   <a href="./README_zh-TW.md">繁體中文</a>｜
    <a href="./README_ko.md">한국어</a>
 </h3>
 
@@ -52,10 +61,6 @@ Obsługuje różnorodne usługi AI, modele postaci i silniki syntezy mowy, oferu
 
 Szczegółowe instrukcje użytkowania i konfiguracji można znaleźć w [dokumentacji](https://docs.aituberkit.com/en/).
 
-## Historia gwiazdek
-
-[![Star History Chart](https://api.star-history.com/svg?repos=tegnike/aituber-kit&type=Date)](https://star-history.com/#tegnike/aituber-kit&Date)
-
 ## Główne funkcje
 
 ### 1. Interakcja z postaciami AI
@@ -63,27 +68,40 @@ Szczegółowe instrukcje użytkowania i konfiguracji można znaleźć w [dokumen
 - Łatwa rozmowa z postaciami AI przy użyciu kluczy API różnych LLM
 - Obsługa multimodalna z rozpoznawaniem obrazów z kamery i przesłanych zdjęć
 - Zachowywanie ostatnich rozmów w pamięci
+- Długoterminowa pamięć oparta na RAG, wykorzystująca przeszłe rozmowy jako kontekst
 
 ### 2. Streaming AITuber
 
 - Automatyczne odpowiedzi postaci AI na komentarze ze streamów YouTube
+- Możliwość wyboru źródła komentarzy: YouTube API / OneComme (WanKome)
 - Tryb ciągłej rozmowy umożliwiający spontaniczne wypowiedzi nawet bez komentarzy
-- Funkcja pomijania komentarzy rozpoczynających się od "#"
+- Konfigurowalne interwały pobierania komentarzy i wyświetlana nazwa użytkownika
 
-### 3. Inne funkcje
+### 3. Terminal demonstracyjny i signage cyfrowy
 
-- **Tryb integracji zewnętrznej**: Zaawansowane funkcje poprzez połączenie WebSocket z aplikacją serwerową
-- **Tryb prezentacji**: Tryb automatycznej prezentacji slajdów przez postać AI
-- **API czasu rzeczywistego**: Rozmowy i wykonywanie funkcji z niskim opóźnieniem przy użyciu OpenAI Realtime API
+- **Tryb terminala demonstracyjnego**: Wyświetlanie pełnoekranowe dla signage cyfrowego. Obsługuje uwierzytelnianie kodem, filtr słów zabronionych i limity długości danych wejściowych
+- **Detekcja obecności**: Automatyczne wykrywanie odwiedzających poprzez detekcję twarzy z kamery. Obsługuje automatyczne odtwarzanie powitań i pożegnań
+- **Tryb bezczynności**: Postać wypowiada się automatycznie, gdy rozmowa ustaje. Obsługuje trzy źródła: stałe frazy, powitania zależne od pory dnia i treści generowane przez AI
+
+### 4. Zaawansowane tryby dialogu
+
+- **Realtime API**: Rozmowy i wykonywanie funkcji z niskim opóźnieniem przy użyciu OpenAI Realtime API
 - **Tryb audio**: Naturalna konwersacja głosowa wykorzystująca OpenAI Audio API
-- **Funkcja odbierania wiadomości**: Możliwość wydawania poleceń postaci AI poprzez dedykowane API
+- **Tryb Reasoning**: Wyświetlanie procesu myślowego AI i konfiguracja parametrów wnioskowania
+
+### 5. Integracja i rozszerzenia
+
+- **Tryb integracji zewnętrznej**: Zaawansowane funkcje, w tym wymiana tekstu i obrazów, poprzez połączenie WebSocket z aplikacją serwerową
+- **Tryb prezentacji**: Tryb automatycznej prezentacji slajdów przez postać AI
+- **Funkcja odbierania wiadomości**: Możliwość przyjmowania tekstu i obrazów z zewnętrznych źródeł poprzez dedykowane API, aby postać AI mogła się wypowiadać
 
 ## Obsługiwane modele i usługi
 
 ### Modele postaci
 
-- **Modele 3D**: Pliki VRM
+- **Modele 3D**: Pliki VRM (obsługuje kontrolę pozy i gestów za pomocą tagów ruchu)
 - **Modele 2D**: Pliki Live2D (Cubism 3 i nowsze)
+- **Motion PNGTuber**: Wyświetlanie postaci oparte na wideo ([MotionPNGTuber](https://github.com/rotejin/MotionPNGTuber))
 
 ### Obsługiwane LLM
 
@@ -96,8 +114,12 @@ Szczegółowe instrukcje użytkowania i konfiguracji można znaleźć w [dokumen
 - Mistral AI
 - Perplexity
 - Fireworks
-- Lokalne LLM
+- LM Studio
+- Ollama
 - Dify
+- xAI
+- DeepSeek
+- OpenRouter
 
 ### Obsługiwane silniki syntezy mowy
 
@@ -112,14 +134,13 @@ Szczegółowe instrukcje użytkowania i konfiguracji można znaleźć w [dokumen
 - ElevenLabs
 - OpenAI
 - Azure OpenAI
-- Nijivoice
 
 ## Szybki start
 
 ### Środowisko programistyczne
 
-- Node.js: ^20.0.0
-- npm: ^10.0.0
+- Node.js: 24.x
+- npm: ^11.6.2
 
 ### Instrukcje instalacji
 
@@ -141,21 +162,99 @@ cd aituber-kit
 npm install
 ```
 
-4. Uruchom aplikację w trybie deweloperskim.
-
-```bash
-npm run dev
-```
-
-5. Otwórz URL: [http://localhost:3000](http://localhost:3000)
-
-6. W razie potrzeby utwórz plik .env.
+4. W razie potrzeby utwórz plik .env.
 
 ```bash
 cp .env.example .env
 ```
 
+5. Uruchom aplikację w trybie deweloperskim.
+
+```bash
+npm run dev
+```
+
+6. Otwórz URL: [http://localhost:3000](http://localhost:3000)
+
+### Szybkie uruchamianie
+
+Po zakończeniu wstępnej konfiguracji możesz uruchomić aplikację po prostu dwukrotnie klikając skrypt uruchamiający.
+
+- **Windows**: Kliknij dwukrotnie `LAUNCH.bat`
+- **macOS**: Kliknij dwukrotnie `LAUNCH.command` (jeśli nie masz uprawnień do wykonania, uruchom `chmod +x LAUNCH.command`)
+
 Szczegółowe instrukcje konfiguracji i użytkowania można znaleźć w [dokumentacji](https://docs.aituberkit.com/en/).
+
+### Uruchamianie z Docker
+
+1. Utwórz plik `.env`.
+
+```bash
+cp .env.example .env
+```
+
+2. Uruchom za pomocą Docker Compose.
+
+```bash
+docker compose up -d
+```
+
+3. Otwórz URL: [http://localhost:3000](http://localhost:3000)
+
+Aby zatrzymać:
+
+```bash
+docker compose down
+```
+
+## Wdrażanie
+
+### Vercel
+
+1. Utwórz konto na [Vercel](https://vercel.com/) i zaimportuj repozytorium GitHub.
+
+2. Ustaw zmienne środowiskowe w panelu Vercel. Dodaj wymagane klucze API (np. `OPENAI_API_KEY`). Dostępne zmienne środowiskowe znajdziesz w `.env.example`.
+
+3. Wdrażanie jest automatycznie wykonywane po wypchnięciu do Production Branch w ustawieniach projektu (domyślnie gałąź `main`).
+
+### Cloudflare Workers
+
+Obsługiwane jest wdrażanie na Cloudflare Workers. Użyj [OpenNext](https://opennext.js.org/) do uruchomienia aplikacji Next.js na Cloudflare Workers.
+
+1. Zainstaluj [Wrangler CLI](https://developers.cloudflare.com/workers/wrangler/) i zaloguj się na konto Cloudflare.
+
+2. W razie potrzeby zmień nazwę projektu w `wrangler.jsonc`.
+
+3. Ustaw zmienne środowiskowe.
+   - **Ustawienia frontendu (`NEXT_PUBLIC_*`)**: Zapisz je w pliku `.env`. Są osadzane w kodzie klienta podczas budowania.
+   - **Klucze API po stronie serwera (`OPENAI_API_KEY` itp.)**: Ustaw je jako sekrety Wrangler.
+
+```bash
+cp .env.example .env
+# Edytuj .env, aby ustawić wartości NEXT_PUBLIC_*
+
+# Ustaw klucze API po stronie serwera jako sekrety Wrangler
+npx wrangler secret put OPENAI_API_KEY
+```
+
+Powtórz `wrangler secret put` dla każdego wymaganego klucza API.
+
+4. Zweryfikuj działanie za pomocą lokalnego podglądu.
+
+```bash
+npm run preview:cloudflare
+```
+
+5. Wdróż w środowisku produkcyjnym.
+
+```bash
+npm run deploy:cloudflare
+```
+
+**Uwagi:**
+
+- Podczas budowania automatycznie ustawiane jest `NEXT_PUBLIC_RESTRICTED_MODE=true`, co wyłącza API systemu plików. Lista zasobów jest dostarczana z manifestów generowanych podczas budowania.
+- Pliki w `public/` przekraczające 25MB lub z nazwami plików zawierającymi znaki spoza ASCII są automatycznie wykluczane z wdrożenia.
 
 ## ⚠️ Ważne uwagi dotyczące bezpieczeństwa
 
@@ -191,9 +290,6 @@ Twoje wsparcie znacząco przyczyni się do rozwoju i ulepszania AITuberKit.
   </a>
   <a href="https://github.com/coderabbitai" title="coderabbitai">
     <img src="https://github.com/coderabbitai.png" width="40" height="40" alt="coderabbitai">
-  </a>
-  <a href="https://github.com/ai-bootcamp-tokyo" title="ai-bootcamp-tokyo">
-    <img src="https://github.com/ai-bootcamp-tokyo.png" width="40" height="40" alt="ai-bootcamp-tokyo">
   </a>
   <a href="https://github.com/wmoto-ai" title="wmoto-ai">
     <img src="https://github.com/wmoto-ai.png" width="40" height="40" alt="wmoto-ai">
@@ -265,7 +361,7 @@ Twoje wsparcie znacząco przyczyni się do rozwoju i ulepszania AITuberKit.
     <img src="https://github.com/uwaguchi.png" width="40" height="40" alt="uwaguchi">
   </a>
   <a href="https://x.com/M1RA_A_Project" title="M1RA_A_Project">
-    <img src="https://pbs.twimg.com/profile_images/1903385253504507904/ceBSG9Wl_400x400.jpg" width="40" height="40" alt="M1RA_A_Project">
+    <img src="https://pbs.twimg.com/profile_images/2013543177253249025/AKHpzZde_400x400.jpg" width="40" height="40" alt="M1RA_A_Project">
   </a>
   <a href="https://github.com/teruPP" title="teruPP">
     <img src="https://github.com/teruPP.png" width="40" height="40" alt="teruPP">
@@ -285,9 +381,35 @@ Twoje wsparcie znacząco przyczyni się do rozwoju i ulepszania AITuberKit.
   <a href="https://github.com/schroneko" title="schroneko">
     <img src="https://github.com/schroneko.png" width="40" height="40" alt="schroneko">
   </a>
+  <a href="https://github.com/ParachutePenguin" title="ParachutePenguin">
+    <img src="https://github.com/ParachutePenguin.png" width="40" height="40" alt="ParachutePenguin">
+  </a>
+  <a href="https://github.com/eruma" title="eruma">
+    <img src="https://github.com/eruma.png" width="40" height="40" alt="eruma">
+  </a>
+  <a href="https://x.com/_cityside" title="_cityside">
+    <img src="https://pbs.twimg.com/profile_images/1987812690254082048/KyWdQTT4_400x400.jpg" width="40" height="40" alt="_cityside">
+  </a>
+  <a href="https://github.com/nyapan-mohy" title="nyapan-mohy">
+    <img src="https://github.com/nyapan-mohy.png" width="40" height="40" alt="nyapan-mohy">
+  </a>
+  <a href="https://github.com/hattoritatsuya" title="hattoritatsuya">
+    <img src="https://github.com/hattoritatsuya.png" width="40" height="40" alt="hattoritatsuya">
+  </a>
+  <a href="https://github.com/sa1p" title="sa1p">
+    <img src="https://github.com/sa1p.png" width="40" height="40" alt="sa1p">
+  </a>
 </p>
 
 Plus kilku prywatnych sponsorów
+
+## Historia gwiazdek
+
+[![Star History Chart](https://api.star-history.com/svg?repos=tegnike/aituber-kit&type=Date)](https://star-history.com/#tegnike/aituber-kit&Date)
+
+## Podziękowania
+
+Ten projekt został opracowany jako fork [ChatVRM](https://github.com/pixiv/ChatVRM) opublikowanego przez pixiv Inc. Głęboko doceniamy pixiv Inc. za udostępnienie tak wspaniałego projektu open source.
 
 ## Wkład
 
@@ -321,7 +443,6 @@ Jeśli chcesz poprawić kod lub dodać nowe funkcje, wprowadź zmiany w swoim sf
 Od wersji v2.0.0 projekt ten przyjął **niestandardową licencję**.
 
 - **Bezpłatne użytkowanie**
-
   - Dozwolone jest bezpłatne użytkowanie do celów osobistych (niekomercyjnych), edukacyjnych i non-profit.
 
 - **Licencja komercyjna**

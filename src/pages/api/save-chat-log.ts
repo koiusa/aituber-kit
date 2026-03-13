@@ -3,6 +3,10 @@ import { NextApiRequest, NextApiResponse } from 'next'
 import fs from 'fs'
 import path from 'path'
 import { Message } from '@/features/messages/messages'
+import {
+  isRestrictedMode,
+  createRestrictedModeErrorResponse,
+} from '@/utils/restrictedMode'
 
 // Supabaseクライアントの初期化
 let supabase: SupabaseClient | null = null
@@ -21,15 +25,35 @@ export default async function handler(
     return res.status(405).json({ message: 'Method not allowed' })
   }
 
+  if (isRestrictedMode()) {
+    return res
+      .status(403)
+      .json(createRestrictedModeErrorResponse('save-chat-log'))
+  }
+
   try {
-    const { messages: newMessages, isNewFile } = req.body as {
+    const {
+      messages: newMessages,
+      isNewFile,
+      targetFileName,
+      overwrite,
+    } = req.body as {
       messages: Message[]
       isNewFile?: boolean
+      targetFileName?: string | null
+      overwrite?: boolean
     }
     const currentTime = new Date().toISOString()
 
     if (!Array.isArray(newMessages) || newMessages.length === 0) {
       return res.status(400).json({ message: 'Invalid messages data' })
+    }
+
+    // overwrite=trueの場合はtargetFileNameが必須
+    if (overwrite && !targetFileName) {
+      return res.status(400).json({
+        message: 'targetFileName is required when overwrite is true',
+      })
     }
 
     const logsDir = path.join(process.cwd(), 'logs')
@@ -39,34 +63,20 @@ export default async function handler(
       fs.mkdirSync(logsDir)
     }
 
-    // isNewFile が true の場合は強制的に新しいファイルを作成
+    // ファイル名の決定: isNewFile → targetFileName → 最新ファイル → 新規作成
+    const newFileName = `log_${currentTime.replace(/[:.]/g, '-')}.json`
     const fileName = isNewFile
-      ? `log_${currentTime.replace(/[:.]/g, '-')}.json`
-      : getLatestLogFile(logsDir) ||
-        `log_${currentTime.replace(/[:.]/g, '-')}.json`
+      ? newFileName
+      : targetFileName || getLatestLogFile(logsDir) || newFileName
 
     const filePath = path.join(logsDir, fileName)
 
-    // ファイルの読み込みと更新
-    let existingMessages: Message[] = []
-    if (fs.existsSync(filePath)) {
-      try {
-        const fileContent = fs.readFileSync(filePath, 'utf-8')
-        existingMessages = JSON.parse(fileContent)
-        if (!Array.isArray(existingMessages)) {
-          console.warn(`Invalid format in ${fileName}, resetting file.`)
-          existingMessages = []
-        }
-      } catch (parseError) {
-        console.error(`Error parsing ${fileName}, resetting file.`, parseError)
-        existingMessages = []
-      }
-    }
+    // 上書きモードでなければ既存メッセージを読み込んで追記
+    const allMessages = overwrite
+      ? newMessages
+      : [...readExistingMessages(filePath, fileName), ...newMessages]
 
-    // 新しいメッセージを既存のメッセージに追加
-    const allMessages = [...existingMessages, ...newMessages]
-
-    // 更新されたメッセージ配列を保存
+    // メッセージ配列を保存
     fs.writeFileSync(filePath, JSON.stringify(allMessages, null, 2))
 
     if (supabase) {
@@ -129,9 +139,25 @@ function getLatestLogFile(dir: string): string | null {
       .filter((f) => f.startsWith('log_') && f.endsWith('.json'))
       .sort()
       .reverse()
-    return files.length > 0 ? files[0] : null
+    return files[0] ?? null
   } catch (error) {
     console.error('Error reading log directory:', error)
     return null
+  }
+}
+
+function readExistingMessages(filePath: string, fileName: string): Message[] {
+  if (!fs.existsSync(filePath)) return []
+
+  try {
+    const messages = JSON.parse(fs.readFileSync(filePath, 'utf-8'))
+    if (!Array.isArray(messages)) {
+      console.warn(`Invalid format in ${fileName}, resetting file.`)
+      return []
+    }
+    return messages
+  } catch (error) {
+    console.error(`Error parsing ${fileName}, resetting file.`, error)
+    return []
   }
 }

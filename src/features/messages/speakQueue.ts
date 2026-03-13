@@ -2,6 +2,7 @@ import { Talk } from './messages'
 import homeStore from '@/features/stores/home'
 import settingsStore from '@/features/stores/settings'
 import { Live2DHandler } from './live2dHandler'
+import { PNGTuberHandler } from '@/features/pngTuber/pngTuberHandler'
 
 type SpeakTask = {
   sessionId: string
@@ -61,8 +62,13 @@ export class SpeakQueue {
     const ss = settingsStore.getState()
     if (ss.modelType === 'live2d') {
       Live2DHandler.stopSpeaking()
+    } else if (ss.modelType === 'pngtuber') {
+      PNGTuberHandler.stopSpeaking()
     } else {
       hs.viewer.model?.stopSpeaking()
+      if (hs.viewer.model?.poseManager?.isActive) {
+        hs.viewer.model?.poseManager?.resetToIdle(hs.viewer.model)
+      }
     }
     homeStore.setState({ isSpeaking: false })
   }
@@ -116,6 +122,8 @@ export class SpeakQueue {
           const { audioBuffer, talk, isNeedDecode, onComplete } = task
           if (ss.modelType === 'live2d') {
             await Live2DHandler.speak(audioBuffer, talk, isNeedDecode)
+          } else if (ss.modelType === 'pngtuber') {
+            await PNGTuberHandler.speak(audioBuffer, talk, isNeedDecode)
           } else {
             await hs.viewer.model?.speak(audioBuffer, talk, isNeedDecode)
           }
@@ -157,8 +165,13 @@ export class SpeakQueue {
       const ss = settingsStore.getState()
       if (ss.modelType === 'live2d') {
         await Live2DHandler.resetToIdle()
+      } else if (ss.modelType === 'pngtuber') {
+        await PNGTuberHandler.resetToIdle()
       } else {
         await hs.viewer.model?.playEmotion('neutral')
+        if (hs.viewer.model?.poseManager?.isActive) {
+          hs.viewer.model?.poseManager?.resetToIdle(hs.viewer.model)
+        }
       }
     }
   }

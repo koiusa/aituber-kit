@@ -18,13 +18,13 @@ const Description = () => {
           <h2 className="text-2xl font-bold">{t('AboutThisApplication')}</h2>
         </div>
         <div className="mb-6">
-          <div className="my-2 whitespace-pre-line">
+          <div className="my-2 text-sm whitespace-pre-wrap">
             {t('AboutThisApplicationDescription2')}
           </div>
         </div>
         <div className="my-10">
           <div className="mb-4 text-xl font-bold">{t('Contact')}</div>
-          <div className="my-2 whitespace-pre-line">
+          <div className="my-2 text-sm whitespace-pre-wrap">
             <a
               href="mailto:support@aituberkit.com"
               className="text-black hover:text-gray-800 hover:underline transition-all duration-300 ease-in-out"
@@ -32,21 +32,21 @@ const Description = () => {
               Email: support@aituberkit.com
             </a>
           </div>
-          <div className="my-2 whitespace-pre-line">
+          <div className="my-2 text-sm whitespace-pre-wrap">
             <a
               href="https://twitter.com/tegnike"
               className="text-black hover:text-gray-800 hover:underline transition-all duration-300 ease-in-out"
             >
-              Twitter: @tegnike
+              X(Twitter): @tegnike
             </a>
           </div>
         </div>
         <div className="mt-10">
           <div className="mb-4 text-xl font-bold">{t('Creator')}</div>
-          <div className="my-2 whitespace-pre-line">
+          <div className="my-2 text-sm whitespace-pre-wrap">
             {t('CreatorDescription')}
           </div>
-          <div className="my-2 whitespace-pre-line">
+          <div className="my-2 text-sm whitespace-pre-wrap">
             <a
               href="https://nikechan.com"
               className="text-black hover:text-gray-800 hover:underline transition-all duration-300 ease-in-out"
@@ -57,10 +57,10 @@ const Description = () => {
         </div>
         <div className="mt-10">
           <div className="mb-4 text-xl font-bold">{t('Documentation')}</div>
-          <div className="my-2 whitespace-pre-line">
+          <div className="my-2 text-sm whitespace-pre-wrap">
             {t('DocumentationDescription')}
           </div>
-          <div className="my-2 whitespace-pre-line">
+          <div className="my-2 text-sm whitespace-pre-wrap">
             <a
               href="https://docs.aituberkit.com"
               target="_blank"
@@ -68,6 +68,22 @@ const Description = () => {
               className="text-black hover:text-gray-800 hover:underline transition-all duration-300 ease-in-out"
             >
               https://docs.aituberkit.com/
+            </a>
+          </div>
+        </div>
+        <div className="mt-10">
+          <div className="mb-4 text-xl font-bold">{t('Promotion')}</div>
+          <div className="my-2 text-sm whitespace-pre-wrap">
+            {t('PromotionDescription')}
+          </div>
+          <div className="my-2 text-sm whitespace-pre-wrap">
+            <a
+              href="https://promotion.aituberkit.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-black hover:text-gray-800 hover:underline transition-all duration-300 ease-in-out"
+            >
+              https://promotion.aituberkit.com/
             </a>
           </div>
         </div>

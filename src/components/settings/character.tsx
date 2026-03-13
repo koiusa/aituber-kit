@@ -1,12 +1,17 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import Image from 'next/image'
 
 import homeStore from '@/features/stores/home'
 import menuStore from '@/features/stores/menu'
-import settingsStore, { SettingsState } from '@/features/stores/settings'
+import settingsStore, {
+  SettingsState,
+  PoseConfigItem,
+} from '@/features/stores/settings'
 import toastStore from '@/features/stores/toast'
 import { TextButton } from '../textButton'
+import { ToggleSwitch } from '../toggleSwitch'
+import { useLive2DEnabled } from '@/hooks/useLive2DEnabled'
 
 // Character型の定義
 type Character = Pick<
@@ -29,6 +34,345 @@ type Character = Pick<
   | 'selectedVrmPath'
   | 'selectedLive2DPath'
 >
+
+interface PoseFile {
+  name: string
+  path: string
+}
+
+const PoseConfigSettings = () => {
+  const { i18n } = useTranslation()
+  const isJa = i18n.language === 'ja'
+  const poseConfigs = settingsStore((s) => s.poseConfigs)
+  const [poseFiles, setPoseFiles] = useState<PoseFile[]>([])
+  const [newId, setNewId] = useState('')
+  const [newJson, setNewJson] = useState('')
+  const [newSeqId, setNewSeqId] = useState('')
+  const [selectedSeqJsons, setSelectedSeqJsons] = useState<string[]>([])
+  const [newSwitchDuration, setNewSwitchDuration] = useState(0.5)
+
+  useEffect(() => {
+    fetch('/api/get-pose-list')
+      .then((res) => res.json())
+      .then((files: PoseFile[]) => setPoseFiles(files))
+      .catch((error) => {
+        console.error('Error fetching pose list:', error)
+      })
+  }, [])
+
+  const handleDelete = (id: string) => {
+    settingsStore.setState({
+      poseConfigs: poseConfigs.filter((p) => p.id !== id),
+    })
+  }
+
+  const handleMove = (id: string, direction: 'up' | 'down') => {
+    const index = poseConfigs.findIndex((p) => p.id === id)
+    if (index === -1) return
+    if (direction === 'up' && index === 0) return
+    if (direction === 'down' && index === poseConfigs.length - 1) return
+
+    const newConfigs = [...poseConfigs]
+    const swapIndex = direction === 'up' ? index - 1 : index + 1
+    ;[newConfigs[index], newConfigs[swapIndex]] = [
+      newConfigs[swapIndex],
+      newConfigs[index],
+    ]
+    settingsStore.setState({ poseConfigs: newConfigs })
+  }
+
+  const handleAddPose = () => {
+    if (!newId.trim() || !newJson) return
+    const id = newId.trim()
+    if (poseConfigs.some((p) => p.id === id)) return
+    const newConfig: PoseConfigItem = {
+      id: newId.trim(),
+      json: newJson,
+    }
+    settingsStore.setState({
+      poseConfigs: [...poseConfigs, newConfig],
+    })
+    setNewId('')
+    setNewJson('')
+  }
+
+  const handleAddSequence = () => {
+    if (!newSeqId.trim() || selectedSeqJsons.length < 2) return
+    const seqId = newSeqId.trim()
+    if (poseConfigs.some((p) => p.id === seqId)) return
+    const clampedDuration = Math.min(5, Math.max(0.1, newSwitchDuration))
+    const newConfig: PoseConfigItem = {
+      id: seqId,
+      sequence: selectedSeqJsons,
+      switchDuration: clampedDuration,
+    }
+    settingsStore.setState({
+      poseConfigs: [...poseConfigs, newConfig],
+    })
+    setNewSeqId('')
+    setSelectedSeqJsons([])
+    setNewSwitchDuration(0.5)
+  }
+
+  const toggleSeqJson = (jsonPath: string) => {
+    setSelectedSeqJsons((prev) =>
+      prev.includes(jsonPath)
+        ? prev.filter((p) => p !== jsonPath)
+        : [...prev, jsonPath]
+    )
+  }
+
+  return (
+    <div className="my-6">
+      <div className="text-xl font-bold mb-4">
+        {isJa ? 'ポーズ設定' : 'Pose Settings'}
+      </div>
+      <div className="mb-4 text-sm">
+        {isJa
+          ? 'ポーズ調整モードで表示されるポーズの追加・削除・並べ替えができます。'
+          : 'Add, remove, and reorder poses displayed in pose adjustment mode.'}
+      </div>
+
+      {/* 既存ポーズ一覧 */}
+      {poseConfigs.length > 0 && (
+        <div className="space-y-2 mb-6">
+          {poseConfigs.map((config, index) => (
+            <div
+              key={config.id}
+              className="flex items-center gap-2 px-3 py-2 bg-white rounded-lg"
+            >
+              <div className="flex-1 min-w-0">
+                <div className="font-bold text-sm truncate">{config.id}</div>
+                <div className="text-xs text-gray-500 truncate">
+                  {'json' in config
+                    ? config.json
+                    : `${isJa ? 'シーケンス' : 'Sequence'}: ${config.sequence.join(', ')} (${config.switchDuration}${isJa ? '秒' : 's'})`}
+                </div>
+              </div>
+              <div className="flex gap-1 shrink-0">
+                <button
+                  onClick={() => handleMove(config.id, 'up')}
+                  disabled={index === 0}
+                  className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded disabled:opacity-30"
+                >
+                  ▲
+                </button>
+                <button
+                  onClick={() => handleMove(config.id, 'down')}
+                  disabled={index === poseConfigs.length - 1}
+                  className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded disabled:opacity-30"
+                >
+                  ▼
+                </button>
+                <button
+                  onClick={() => handleDelete(config.id)}
+                  className="px-2 py-1 text-xs bg-red-100 hover:bg-red-200 text-red-600 rounded"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* 通常ポーズ追加 */}
+      <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+        <div className="font-bold text-sm mb-2">
+          {isJa ? '通常ポーズを追加' : 'Add Pose'}
+        </div>
+        <div className="flex gap-2 items-end">
+          <div className="flex-1">
+            <label className="block text-xs mb-1">ID</label>
+            <input
+              type="text"
+              value={newId}
+              onChange={(e) => setNewId(e.target.value)}
+              placeholder={isJa ? '例: think' : 'e.g. think'}
+              className="w-full px-3 py-2 bg-white rounded-lg text-sm"
+            />
+          </div>
+          <div className="flex-1">
+            <label className="block text-xs mb-1">
+              {isJa ? 'JSONファイル' : 'JSON File'}
+            </label>
+            <select
+              value={newJson}
+              onChange={(e) => {
+                setNewJson(e.target.value)
+                if (e.target.value && !newId.trim()) {
+                  const fileName = e.target.value.split('/').pop() ?? ''
+                  setNewId(fileName.replace('.json', ''))
+                }
+              }}
+              className="w-full px-3 py-2 bg-white rounded-lg text-sm"
+            >
+              <option value="">{isJa ? '選択してください' : 'Select'}</option>
+              {poseFiles.map((f) => (
+                <option key={f.path} value={f.path}>
+                  {f.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <button
+            onClick={handleAddPose}
+            disabled={
+              !newId.trim() ||
+              !newJson ||
+              poseConfigs.some((p) => p.id === newId.trim())
+            }
+            className="px-4 py-2 bg-primary text-theme rounded-lg text-sm font-bold disabled:opacity-40"
+          >
+            {isJa ? '追加' : 'Add'}
+          </button>
+        </div>
+      </div>
+
+      {/* シーケンス追加 */}
+      <div className="p-4 bg-gray-50 rounded-lg">
+        <div className="font-bold text-sm mb-2">
+          {isJa ? 'シーケンスポーズを追加' : 'Add Sequence Pose'}
+        </div>
+        <div className="mb-3">
+          <label className="block text-xs mb-1">ID</label>
+          <input
+            type="text"
+            value={newSeqId}
+            onChange={(e) => setNewSeqId(e.target.value)}
+            placeholder={isJa ? '例: wave' : 'e.g. wave'}
+            className="w-full px-3 py-2 bg-white rounded-lg text-sm"
+          />
+        </div>
+        <div className="mb-3">
+          <label className="block text-xs mb-1">
+            {isJa ? 'JSONファイル（2つ以上選択）' : 'JSON Files (select 2+)'}
+          </label>
+          <div className="flex flex-wrap gap-2">
+            {poseFiles.map((f) => (
+              <label
+                key={f.path}
+                className="flex items-center gap-1 px-2 py-1 bg-white rounded text-sm cursor-pointer"
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedSeqJsons.includes(f.path)}
+                  onChange={() => toggleSeqJson(f.path)}
+                  className="h-4 w-4"
+                />
+                {f.name}
+              </label>
+            ))}
+          </div>
+        </div>
+        <div className="flex gap-2 items-end">
+          <div>
+            <label className="block text-xs mb-1">
+              {isJa ? '遷移時間（秒）' : 'Transition (sec)'}
+            </label>
+            <input
+              type="number"
+              value={newSwitchDuration}
+              onChange={(e) =>
+                setNewSwitchDuration(parseFloat(e.target.value) || 0.5)
+              }
+              min="0.1"
+              max="5"
+              step="0.1"
+              className="w-24 px-3 py-2 bg-white rounded-lg text-sm"
+            />
+          </div>
+          <button
+            onClick={handleAddSequence}
+            disabled={!newSeqId.trim() || selectedSeqJsons.length < 2}
+            className="px-4 py-2 bg-primary text-theme rounded-lg text-sm font-bold disabled:opacity-40"
+          >
+            {isJa ? '追加' : 'Add'}
+          </button>
+        </div>
+      </div>
+
+      {/* モーションタグ参照 */}
+      {poseConfigs.length > 0 && (
+        <MotionTagReference poseConfigs={poseConfigs} />
+      )}
+    </div>
+  )
+}
+
+const KNOWN_MOTION_DESCRIPTIONS: Record<string, { ja: string; en: string }> = {
+  think: { ja: '考え中、悩んでいる', en: 'thinking, pondering' },
+  cheer: { ja: '応援、喜び、やったー', en: 'cheering, joy' },
+  cross: { ja: '拒否、ダメ、バツ', en: 'rejection, no' },
+  mouth_cover: { ja: '驚き、口を覆う', en: 'surprise, covering mouth' },
+  crossed_arms: { ja: '自信、不満、腕組み', en: 'confidence, arms crossed' },
+  bow: { ja: 'お辞儀、感謝、謝罪', en: 'bow, gratitude, apology' },
+  shrug: { ja: 'お手上げ、分からない', en: 'shrug, no idea' },
+  shy: { ja: '照れ、恥ずかしい', en: 'shy, embarrassed' },
+  wave: { ja: '手を振る、挨拶', en: 'waving, greeting' },
+  clap: { ja: '拍手、称賛', en: 'clapping, applause' },
+}
+
+const MotionTagReference = ({
+  poseConfigs,
+}: {
+  poseConfigs: PoseConfigItem[]
+}) => {
+  const { i18n } = useTranslation()
+  const [copied, setCopied] = useState(false)
+  const isJa = i18n.language === 'ja'
+
+  const motionList = poseConfigs
+    .map((p) => {
+      const desc = KNOWN_MOTION_DESCRIPTIONS[p.id]
+      const label = desc ? (isJa ? desc.ja : desc.en) : p.id
+      return isJa ? `- ${p.id}: ${label}` : `- ${p.id}: ${label}`
+    })
+    .join('\n')
+  const tagFormat = '[motion:モーション名]'
+  const fullText = isJa
+    ? `モーションタグを使ってキャラクターにポーズを取らせることができます。\n利用可能なモーションとその意味は以下の通りです。\n${motionList}\n\nモーションタグの書式: ${tagFormat}\n感情タグと併用可能です。モーションは会話の内容に合った場面でのみ使い、毎回使う必要はありません。`
+    : `You can use motion tags to make the character pose.\nAvailable motions:\n${motionList}\n\nMotion tag format: [motion:motionName]\nCan be combined with emotion tags. Use motions only when appropriate, not every time.`
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(fullText).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
+
+  return (
+    <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+      <div className="font-bold text-sm mb-2">
+        {isJa ? 'モーションタグ' : 'Motion Tags'}
+      </div>
+      <div className="text-xs text-gray-500 mb-2">
+        {isJa
+          ? 'システムプロンプトに貼り付けると、AIがモーションを使えるようになります。'
+          : 'Paste into the system prompt to enable AI-controlled motions.'}
+      </div>
+      <div
+        onClick={handleCopy}
+        className="px-3 py-2 bg-white rounded-lg cursor-pointer hover:bg-gray-100 transition-colors"
+      >
+        <code className="block text-xs break-all select-all whitespace-pre-wrap">
+          {fullText}
+        </code>
+        <div className="text-right mt-1">
+          <span className="text-xs text-gray-400">
+            {copied
+              ? isJa
+                ? '✓ コピー済み'
+                : '✓ copied'
+              : isJa
+                ? 'クリックでコピー'
+                : 'click to copy'}
+          </span>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 const emotionFields = [
   {
@@ -182,7 +526,7 @@ const Live2DSettingsForm = () => {
     <div className="space-y-8">
       <div className="mb-6">
         <div className="mb-4 text-xl font-bold">{t('Live2D.Emotions')}</div>
-        <div className="mb-6 whitespace-pre-line">
+        <div className="my-2 text-sm whitespace-pre-wrap">
           {t('Live2D.EmotionInfo')}
         </div>
         <div className="space-y-4 text-sm">
@@ -285,7 +629,7 @@ const Live2DSettingsForm = () => {
 
       <div className="">
         <div className="mb-4 text-xl font-bold">{t('Live2D.MotionGroups')}</div>
-        <div className="mb-6 whitespace-pre-line">
+        <div className="my-2 text-sm whitespace-pre-wrap">
           {t('Live2D.MotionGroupsInfo')}
         </div>
         <div className="space-y-4">
@@ -340,11 +684,17 @@ const Live2DSettingsForm = () => {
 }
 
 const Character = () => {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const { isLive2DEnabled } = useLive2DEnabled()
   const {
     characterName,
     selectedVrmPath,
     selectedLive2DPath,
+    selectedPNGTuberPath,
+    pngTuberSensitivity,
+    pngTuberChromaKeyEnabled,
+    pngTuberChromaKeyColor,
+    pngTuberChromaKeyTolerance,
     modelType,
     fixedCharacterPosition,
     selectAIService,
@@ -361,11 +711,68 @@ const Character = () => {
     customPresetName5,
     selectedPresetIndex,
     lightingIntensity,
+    poseAdjustMode,
   } = settingsStore()
   const [vrmFiles, setVrmFiles] = useState<string[]>([])
   const [live2dModels, setLive2dModels] = useState<
     Array<{ path: string; name: string }>
   >([])
+  const [pngTuberModels, setPngTuberModels] = useState<
+    Array<{ path: string; name: string; videoFile?: string }>
+  >([])
+
+  // クロマキー用動画プレビュー
+  const chromaKeyVideoRef = useRef<HTMLVideoElement>(null)
+  const chromaKeyCanvasRef = useRef<HTMLCanvasElement>(null)
+  const [chromaKeyVideoUrl, setChromaKeyVideoUrl] = useState<string>('')
+
+  // 選択されたPNGTuberの動画URLを取得
+  useEffect(() => {
+    if (selectedPNGTuberPath && pngTuberModels.length > 0) {
+      const selectedModel = pngTuberModels.find(
+        (model) => model.path === selectedPNGTuberPath
+      )
+      if (selectedModel?.videoFile) {
+        setChromaKeyVideoUrl(`${selectedModel.path}/${selectedModel.videoFile}`)
+      }
+    }
+  }, [selectedPNGTuberPath, pngTuberModels])
+
+  // 動画クリックで色を取得
+  const handleVideoClick = useCallback(
+    (e: React.MouseEvent<HTMLVideoElement>) => {
+      const video = chromaKeyVideoRef.current
+      const canvas = chromaKeyCanvasRef.current
+      if (!video || !canvas) return
+
+      const rect = video.getBoundingClientRect()
+      const x = e.clientX - rect.left
+      const y = e.clientY - rect.top
+
+      // キャンバスサイズを動画に合わせる
+      canvas.width = video.videoWidth
+      canvas.height = video.videoHeight
+
+      const ctx = canvas.getContext('2d')
+      if (!ctx) return
+
+      // 動画の現在フレームをキャンバスに描画
+      ctx.drawImage(video, 0, 0)
+
+      // クリック位置を動画座標に変換
+      const scaleX = video.videoWidth / rect.width
+      const scaleY = video.videoHeight / rect.height
+      const videoX = Math.floor(x * scaleX)
+      const videoY = Math.floor(y * scaleY)
+
+      // ピクセルの色を取得
+      const pixel = ctx.getImageData(videoX, videoY, 1, 1).data
+      const hexColor = `#${pixel[0].toString(16).padStart(2, '0')}${pixel[1].toString(16).padStart(2, '0')}${pixel[2].toString(16).padStart(2, '0')}`
+
+      settingsStore.setState({ pngTuberChromaKeyColor: hexColor })
+    },
+    []
+  )
 
   const characterPresets = [
     {
@@ -406,11 +813,20 @@ const Character = () => {
         console.error('Error fetching VRM list:', error)
       })
 
-    fetch('/api/get-live2d-list')
+    if (isLive2DEnabled) {
+      fetch('/api/get-live2d-list')
+        .then((res) => res.json())
+        .then((models) => setLive2dModels(models))
+        .catch((error) => {
+          console.error('Error fetching Live2D list:', error)
+        })
+    }
+
+    fetch('/api/get-pngtuber-list')
       .then((res) => res.json())
-      .then((models) => setLive2dModels(models))
+      .then((models) => setPngTuberModels(models))
       .catch((error) => {
-        console.error('Error fetching Live2D list:', error)
+        console.error('Error fetching PNGTuber list:', error)
       })
   }, [])
   const handlePositionAction = (action: 'fix' | 'unfix' | 'reset') => {
@@ -516,7 +932,9 @@ const Character = () => {
         <div className="mt-6 mb-4 text-xl font-bold">
           {t('CharacterModelLabel')}
         </div>
-        <div className="mb-4">{t('CharacterModelInfo')}</div>
+        <div className="my-2 text-sm whitespace-pre-wrap">
+          {t('CharacterModelInfo')}
+        </div>
 
         <div className="flex mb-2">
           <button
@@ -530,7 +948,7 @@ const Character = () => {
             VRM
           </button>
           <button
-            className={`px-4 py-2 rounded-lg ${
+            className={`px-4 py-2 rounded-lg mr-2 ${
               modelType === 'live2d'
                 ? 'bg-primary text-theme'
                 : 'bg-white hover:bg-white-hover'
@@ -539,9 +957,19 @@ const Character = () => {
           >
             Live2D
           </button>
+          <button
+            className={`px-4 py-2 rounded-lg ${
+              modelType === 'pngtuber'
+                ? 'bg-primary text-theme'
+                : 'bg-white hover:bg-white-hover'
+            }`}
+            onClick={() => settingsStore.setState({ modelType: 'pngtuber' })}
+          >
+            {i18n.language === 'ja' ? '動くPNGTuber' : 'MotionPNGTuber'}
+          </button>
         </div>
 
-        {modelType === 'vrm' ? (
+        {modelType === 'vrm' && (
           <>
             <select
               className="text-ellipsis px-4 py-2 w-col-span-2 bg-white hover:bg-white-hover rounded-lg"
@@ -580,9 +1008,19 @@ const Character = () => {
               </TextButton>
             </div>
           </>
-        ) : (
+        )}
+
+        {modelType === 'live2d' && !isLive2DEnabled && (
+          <div className="my-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <div className="text-sm whitespace-pre-wrap text-yellow-800">
+              {t('Live2D.SetupInfo')}
+            </div>
+          </div>
+        )}
+
+        {modelType === 'live2d' && isLive2DEnabled && (
           <>
-            <div className="my-4 whitespace-pre-line">
+            <div className="my-2 text-sm whitespace-pre-wrap">
               {t('Live2D.FileInfo')}
             </div>
             <select
@@ -605,39 +1043,219 @@ const Character = () => {
           </>
         )}
 
-        {/* Character Position Controls */}
-        <div className="my-6">
-          <div className="text-xl font-bold mb-4">{t('CharacterPosition')}</div>
-          <div className="mb-4">{t('CharacterPositionInfo')}</div>
-          <div className="mb-2 text-sm font-medium">
-            {t('CurrentStatus')}:{' '}
-            <span className="font-bold">
-              {fixedCharacterPosition
-                ? t('PositionFixed')
-                : t('PositionNotFixed')}
-            </span>
+        {modelType === 'pngtuber' && (
+          <>
+            <div className="my-2 text-sm whitespace-pre-wrap">
+              {t('PNGTuber.FileInfo')}
+            </div>
+            <div className="my-2 text-sm">
+              {i18n.language === 'ja'
+                ? 'アセットの作成方法は '
+                : 'For asset creation, see '}
+              <a
+                href="https://github.com/rotejin/MotionPNGTuber"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary hover:underline"
+              >
+                https://github.com/rotejin/MotionPNGTuber
+              </a>
+              {i18n.language === 'ja' ? ' を参照してください。' : '.'}
+            </div>
+            <select
+              className="text-ellipsis px-4 py-2 w-col-span-2 bg-white hover:bg-white-hover rounded-lg mb-2"
+              value={selectedPNGTuberPath}
+              onChange={(e) => {
+                const path = e.target.value
+                settingsStore.setState({ selectedPNGTuberPath: path })
+              }}
+            >
+              {pngTuberModels.map((model) => (
+                <option key={model.path} value={model.path}>
+                  {model.name}
+                </option>
+              ))}
+            </select>
+            <div className="my-4">
+              <div className="font-bold">
+                {t('PNGTuber.Sensitivity')}: {pngTuberSensitivity}
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                step="1"
+                value={pngTuberSensitivity}
+                onChange={(e) => {
+                  settingsStore.setState({
+                    pngTuberSensitivity: parseInt(e.target.value),
+                  })
+                }}
+                className="mt-2 mb-4 input-range"
+              />
+              <div className="text-sm text-gray-600">
+                {t('PNGTuber.SensitivityInfo')}
+              </div>
+            </div>
+
+            {/* クロマキー設定 */}
+            <div className="my-6">
+              <div className="my-4 font-bold">{t('PNGTuber.ChromaKey')}</div>
+              <div className="my-2">
+                <ToggleSwitch
+                  enabled={pngTuberChromaKeyEnabled}
+                  onChange={(v) =>
+                    settingsStore.setState({
+                      pngTuberChromaKeyEnabled: v,
+                    })
+                  }
+                />
+              </div>
+
+              {pngTuberChromaKeyEnabled && (
+                <>
+                  {/* 動画プレビュー */}
+                  {chromaKeyVideoUrl && (
+                    <div className="mb-4">
+                      <div className="font-bold mb-2">
+                        {t('PNGTuber.ChromaKeyPreview')}
+                      </div>
+                      <div className="text-sm text-gray-600 mb-2">
+                        {t('PNGTuber.ChromaKeyPreviewInfo')}
+                      </div>
+                      <div className="relative inline-block">
+                        <video
+                          ref={chromaKeyVideoRef}
+                          src={chromaKeyVideoUrl}
+                          className="max-w-full h-auto max-h-48 rounded-lg cursor-crosshair border border-gray-300"
+                          autoPlay
+                          loop
+                          muted
+                          playsInline
+                          onClick={handleVideoClick}
+                        />
+                        <canvas ref={chromaKeyCanvasRef} className="hidden" />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* カラーピッカー */}
+                  <div className="mb-4">
+                    <div className="font-bold mb-2">
+                      {t('PNGTuber.ChromaKeyColor')}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={pngTuberChromaKeyColor}
+                        onChange={(e) =>
+                          settingsStore.setState({
+                            pngTuberChromaKeyColor: e.target.value,
+                          })
+                        }
+                        className="h-10 w-16 rounded cursor-pointer"
+                      />
+                      <input
+                        type="text"
+                        value={pngTuberChromaKeyColor}
+                        onChange={(e) =>
+                          settingsStore.setState({
+                            pngTuberChromaKeyColor: e.target.value,
+                          })
+                        }
+                        className="px-2 py-1 w-24 bg-white rounded-lg border"
+                        placeholder="#00FF00"
+                      />
+                    </div>
+                  </div>
+
+                  {/* 許容値スライダー */}
+                  <div>
+                    <div className="font-bold">
+                      {t('PNGTuber.ChromaKeyTolerance')}:{' '}
+                      {pngTuberChromaKeyTolerance}
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="255"
+                      step="1"
+                      value={pngTuberChromaKeyTolerance}
+                      onChange={(e) =>
+                        settingsStore.setState({
+                          pngTuberChromaKeyTolerance: parseInt(e.target.value),
+                        })
+                      }
+                      className="mt-2 mb-4 input-range"
+                    />
+                    <div className="text-sm text-gray-600">
+                      {t('PNGTuber.ChromaKeyToleranceInfo')}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* 位置・サイズリセットボタン */}
+            <div className="my-6">
+              <div className="font-bold mb-2">{t('PNGTuber.PositionSize')}</div>
+              <div className="text-sm text-gray-600 mb-4">
+                {t('PNGTuber.PositionInfo')}
+              </div>
+              <TextButton
+                onClick={() => {
+                  settingsStore.setState({
+                    pngTuberScale: 1.0,
+                    pngTuberOffsetX: 0,
+                    pngTuberOffsetY: 0,
+                  })
+                }}
+              >
+                {t('PNGTuber.ResetPosition')}
+              </TextButton>
+            </div>
+          </>
+        )}
+
+        {/* Character Position Controls - VRM/Live2D only (PNGTuber uses scale/offset in viewer) */}
+        {modelType !== 'pngtuber' && (
+          <div className="my-6">
+            <div className="text-xl font-bold mb-4">
+              {t('CharacterPosition')}
+            </div>
+            <div className="my-2 text-sm whitespace-pre-wrap">
+              {t('CharacterPositionInfo')}
+            </div>
+            <div className="mb-2 text-sm font-medium">
+              {t('CurrentStatus')}:{' '}
+              <span className="font-bold">
+                {fixedCharacterPosition
+                  ? t('PositionFixed')
+                  : t('PositionNotFixed')}
+              </span>
+            </div>
+            <div className="flex gap-4 md:flex-row flex-col">
+              <button
+                onClick={() => handlePositionAction('fix')}
+                className="px-4 py-3 text-theme font-medium bg-primary hover:bg-primary-hover active:bg-primary-press rounded-lg transition-colors duration-200 md:rounded-full md:px-6 md:py-2"
+              >
+                {t('FixPosition')}
+              </button>
+              <button
+                onClick={() => handlePositionAction('unfix')}
+                className="px-4 py-3 text-theme font-medium bg-primary hover:bg-primary-hover active:bg-primary-press rounded-lg transition-colors duration-200 md:rounded-full md:px-6 md:py-2"
+              >
+                {t('UnfixPosition')}
+              </button>
+              <button
+                onClick={() => handlePositionAction('reset')}
+                className="px-4 py-3 text-theme font-medium bg-primary hover:bg-primary-hover active:bg-primary-press rounded-lg transition-colors duration-200 md:rounded-full md:px-6 md:py-2"
+              >
+                {t('ResetPosition')}
+              </button>
+            </div>
           </div>
-          <div className="flex gap-4 md:flex-row flex-col">
-            <button
-              onClick={() => handlePositionAction('fix')}
-              className="px-4 py-3 text-theme font-medium bg-primary hover:bg-primary-hover active:bg-primary-press rounded-lg transition-colors duration-200 md:rounded-full md:px-6 md:py-2"
-            >
-              {t('FixPosition')}
-            </button>
-            <button
-              onClick={() => handlePositionAction('unfix')}
-              className="px-4 py-3 text-theme font-medium bg-primary hover:bg-primary-hover active:bg-primary-press rounded-lg transition-colors duration-200 md:rounded-full md:px-6 md:py-2"
-            >
-              {t('UnfixPosition')}
-            </button>
-            <button
-              onClick={() => handlePositionAction('reset')}
-              className="px-4 py-3 text-theme font-medium bg-primary hover:bg-primary-hover active:bg-primary-press rounded-lg transition-colors duration-200 md:rounded-full md:px-6 md:py-2"
-            >
-              {t('ResetPosition')}
-            </button>
-          </div>
-        </div>
+        )}
 
         {/* VRM Lighting Controls */}
         {modelType === 'vrm' && (
@@ -671,19 +1289,35 @@ const Character = () => {
           </div>
         )}
 
-        <div className="my-6 mb-2">
+        {modelType === 'vrm' && (
+          <div className="my-6">
+            <div className="text-xl font-bold mb-4">ポーズ角度調整</div>
+            <div className="mb-4 text-sm">
+              ONにすると画面上にポーズ調整UIが表示されます。ポーズごとのY軸回転を微調整できます。
+            </div>
+            <ToggleSwitch
+              enabled={poseAdjustMode}
+              onChange={(v) => settingsStore.setState({ poseAdjustMode: v })}
+            />
+            <PoseConfigSettings />
+          </div>
+        )}
+
+        <div className="border-t border-gray-300 pt-6 my-6 mb-2">
           <div className="my-4 text-xl font-bold">
             {t('CharacterSettingsPrompt')}
           </div>
           {selectAIService === 'dify' ? (
-            <div className="my-4">{t('DifyInstruction')}</div>
+            <div className="my-2 text-sm whitespace-pre-wrap">
+              {t('DifyInstruction')}
+            </div>
           ) : (
-            <div className="my-4 whitespace-pre-line">
+            <div className="my-2 text-sm whitespace-pre-wrap">
               {t('CharacterSettingsInfo')}
             </div>
           )}
         </div>
-        <div className="my-4 whitespace-pre-line">
+        <div className="my-2 text-sm whitespace-pre-wrap">
           {t('CharacterpresetInfo')}
         </div>
         <div className="my-6 mb-2">
