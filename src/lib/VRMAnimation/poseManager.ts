@@ -38,7 +38,7 @@ export class PoseManager {
         Promise.all(
           poseConfig.sequence.map((p) => loadPoseFromJSON(buildUrl(p)))
         ),
-        loadVRMAnimation(buildUrl('/idle_loop.vrma')),
+        loadVRMAnimation(buildUrl('/animations/idle_loop.vrma')),
       ])
       if (poses.some((p) => !p) || !idleVrma) return
       if (requestId !== this.applyRequestId) return
@@ -92,7 +92,7 @@ export class PoseManager {
     } else {
       const [pose, idleVrma] = await Promise.all([
         loadPoseFromJSON(buildUrl(poseConfig.json)),
-        loadVRMAnimation(buildUrl('/idle_loop.vrma')),
+        loadVRMAnimation(buildUrl('/animations/idle_loop.vrma')),
       ])
       if (!pose || !idleVrma) return
       if (requestId !== this.applyRequestId) return
