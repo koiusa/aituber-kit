@@ -88,6 +88,7 @@ export type AIVoice =
   | 'koeiromap'
   | 'google'
   | 'voicevox'
+  | 'voicepeak'
   | 'stylebertvits2'
   | 'aivis_speech'
   | 'aivis_cloud_api'

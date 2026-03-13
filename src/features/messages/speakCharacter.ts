@@ -9,6 +9,7 @@ import { synthesizeVoiceElevenlabsApi } from './synthesizeVoiceElevenlabs'
 import { synthesizeVoiceCartesiaApi } from './synthesizeVoiceCartesia'
 import { synthesizeVoiceGoogleApi } from './synthesizeVoiceGoogle'
 import { synthesizeVoiceVoicevoxApi } from './synthesizeVoiceVoicevox'
+import { synthesizeVoiceVoicePeakApi } from './synthesizeVoiceVoicepeak'
 import { synthesizeVoiceAivisSpeechApi } from './synthesizeVoiceAivisSpeech'
 import { synthesizeVoiceAivisCloudApi } from './synthesizeVoiceAivisCloudApi'
 import { synthesizeVoiceGSVIApi } from './synthesizeVoiceGSVI'
@@ -93,6 +94,18 @@ async function synthesizeVoice(
           ss.voicevoxPitch,
           ss.voicevoxIntonation,
           ss.voicevoxServerUrl
+        )
+      case 'voicepeak':
+        return await synthesizeVoiceVoicePeakApi(
+          talk,
+          ss.voicepeakSpeaker,
+          ss.voicepeakSpeed,
+          ss.voicepeakPitch,
+          ss.voicepeakIntonationScale,
+          ss.voicepeakServerUrl,
+          ss.voicepeakTempoDynamics,
+          ss.voicepeakPrePhonemeLength,
+          ss.voicepeakPostPhonemeLength
         )
       case 'google':
         return await synthesizeVoiceGoogleApi(

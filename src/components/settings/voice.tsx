@@ -37,6 +37,20 @@ const Voice = () => {
   const voicevoxPitch = settingsStore((s) => s.voicevoxPitch)
   const voicevoxIntonation = settingsStore((s) => s.voicevoxIntonation)
   const voicevoxServerUrl = settingsStore((s) => s.voicevoxServerUrl)
+  const voicepeakSpeaker = settingsStore((s) => s.voicepeakSpeaker)
+  const voicepeakSpeed = settingsStore((s) => s.voicepeakSpeed)
+  const voicepeakPitch = settingsStore((s) => s.voicepeakPitch)
+  const voicepeakIntonationScale = settingsStore(
+    (s) => s.voicepeakIntonationScale
+  )
+  const voicepeakServerUrl = settingsStore((s) => s.voicepeakServerUrl)
+  const voicepeakTempoDynamics = settingsStore((s) => s.voicepeakTempoDynamics)
+  const voicepeakPrePhonemeLength = settingsStore(
+    (s) => s.voicepeakPrePhonemeLength
+  )
+  const voicepeakPostPhonemeLength = settingsStore(
+    (s) => s.voicepeakPostPhonemeLength
+  )
   const aivisSpeechSpeaker = settingsStore((s) => s.aivisSpeechSpeaker)
   const aivisSpeechSpeed = settingsStore((s) => s.aivisSpeechSpeed)
   const aivisSpeechPitch = settingsStore((s) => s.aivisSpeechPitch)
@@ -95,6 +109,7 @@ const Voice = () => {
   const { t } = useTranslation()
   const [speakers_aivis, setSpeakers_aivis] = useState<Array<any>>([])
   const [speakers_voicevox, setSpeakers_voicevox] = useState<Array<any>>([])
+  const [speakers_voicepeak, setSpeakers_voicepeak] = useState<Array<any>>([])
   const [customVoiceText, setCustomVoiceText] = useState<string>('')
   const [isUpdatingSpeakers, setIsUpdatingSpeakers] = useState<boolean>(false)
   const [speakersUpdateError, setSpeakersUpdateError] = useState<string>('')
@@ -125,6 +140,17 @@ const Voice = () => {
     }
   }
 
+  // VoicePeakの話者一覧を取得する関数
+  const fetchVoicePeakSpeakers = async () => {
+    try {
+      const response = await fetch('/speakers_voicepeak.json')
+      const data = await response.json()
+      setSpeakers_voicepeak(data)
+    } catch (error) {
+      console.error('Failed to fetch VoicePeak speakers:', error)
+    }
+  }
+
   // コンポーネントマウント時またはAIVIS選択時に話者一覧を取得
   useEffect(() => {
     if (selectVoice === 'aivis_speech') {
@@ -136,6 +162,13 @@ const Voice = () => {
   useEffect(() => {
     if (selectVoice === 'voicevox') {
       fetchVoicevoxSpeakers()
+    }
+  }, [selectVoice])
+
+  // コンポーネントマウント時またはVoicePeak選択時に話者一覧を取得
+  useEffect(() => {
+    if (selectVoice === 'voicepeak') {
+      fetchVoicePeakSpeakers()
     }
   }, [selectVoice])
 
@@ -185,6 +218,7 @@ const Voice = () => {
           <option value="cartesia">{t('UsingCartesia')}</option>
           <option value="openai">{t('UsingOpenAITTS')}</option>
           <option value="azure">{t('UsingAzureTTS')}</option>
+          <option value="voicepeak">{t('UsingVoicePeak')}</option>
         </select>
       </div>
 
@@ -455,6 +489,207 @@ const Voice = () => {
                       })
                     }}
                   ></input>
+                </div>
+              </>
+            )
+          } else if (selectVoice === 'voicepeak') {
+            return (
+              <>
+                <div>
+                  {t('VoicePeakInfo')}
+                  <br />
+                  <Link
+                    url="https://www.ah-soft.com/voice/"
+                    label="https://www.ah-soft.com/voice/"
+                  />
+                </div>
+                <div className="mt-4 font-bold">
+                  {t('VoicePeakServerUrl')}
+                </div>
+                <div className="mt-2">
+                  <input
+                    className="text-ellipsis px-4 py-2 w-full bg-white hover:bg-white-hover rounded-lg"
+                    type="text"
+                    placeholder="http://localhost:3000"
+                    value={voicepeakServerUrl}
+                    onChange={(e) =>
+                      settingsStore.setState({
+                        voicepeakServerUrl: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+                <div className="mt-4 font-bold">{t('VoicePeakSpeaker')}</div>
+                <div className="space-y-3">
+                  <select
+                    value={voicepeakSpeaker}
+                    onChange={(e) =>
+                      settingsStore.setState({
+                        voicepeakSpeaker: e.target.value,
+                      })
+                    }
+                    className="px-4 py-2 bg-white hover:bg-white-hover rounded-lg"
+                  >
+                    <option value="">{t('Select')}</option>
+                    {speakers_voicepeak.map((speaker) => (
+                      <option key={speaker.id} value={speaker.id}>
+                        {speaker.speaker}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={async () => {
+                      setIsUpdatingSpeakers(true)
+                      setSpeakersUpdateError('')
+                      try {
+                        const response = await fetch(
+                          '/api/update-voicepeak-speakers?serverUrl=' +
+                            voicepeakServerUrl
+                        )
+                        if (response.ok) {
+                          const updatedSpeakersResponse = await fetch(
+                            '/speakers_voicepeak.json'
+                          )
+                          const updatedSpeakers =
+                            await updatedSpeakersResponse.json()
+                          setSpeakers_voicepeak(updatedSpeakers)
+                        } else {
+                          setSpeakersUpdateError(
+                            '話者リストの更新に失敗しました'
+                          )
+                        }
+                      } catch (error) {
+                        setSpeakersUpdateError(
+                          'ネットワークエラーが発生しました'
+                        )
+                      } finally {
+                        setIsUpdatingSpeakers(false)
+                      }
+                    }}
+                    disabled={isUpdatingSpeakers}
+                    className="w-full px-4 py-2 text-sm font-medium text-theme bg-primary hover:bg-primary-hover active:bg-primary-press rounded-lg transition-colors duration-200 flex items-center justify-center gap-2"
+                  >
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                      />
+                    </svg>
+                    {isUpdatingSpeakers ? '更新中...' : t('UpdateSpeakerList')}
+                  </button>
+                  {speakersUpdateError && (
+                    <div className="mt-2 text-red-600 text-sm">
+                      {speakersUpdateError}
+                    </div>
+                  )}
+                </div>
+                <div className="mt-6 font-bold">
+                  <div className="select-none">
+                    {t('SpeechSpeed')}: {voicepeakSpeed}
+                  </div>
+                  <input
+                    type="range"
+                    min={0.5}
+                    max={2}
+                    step={0.01}
+                    value={voicepeakSpeed}
+                    className="mt-2 mb-4 input-range"
+                    onChange={(e) => {
+                      settingsStore.setState({
+                        voicepeakSpeed: Number(e.target.value),
+                      })
+                    }}
+                  />
+                  <div className="select-none">
+                    {t('Pitch')}: {voicepeakPitch}
+                  </div>
+                  <input
+                    type="range"
+                    min={-0.15}
+                    max={0.15}
+                    step={0.01}
+                    value={voicepeakPitch}
+                    className="mt-2 mb-4 input-range"
+                    onChange={(e) => {
+                      settingsStore.setState({
+                        voicepeakPitch: Number(e.target.value),
+                      })
+                    }}
+                  />
+                  <div className="select-none">
+                    {t('TempoDynamics')}: {voicepeakTempoDynamics}
+                  </div>
+                  <input
+                    type="range"
+                    min={0.5}
+                    max={2.0}
+                    step={0.01}
+                    value={voicepeakTempoDynamics}
+                    className="mt-2 mb-4 input-range"
+                    onChange={(e) => {
+                      settingsStore.setState({
+                        voicepeakTempoDynamics: Number(e.target.value),
+                      })
+                    }}
+                  />
+                  <div className="select-none">
+                    {t('VoicePeakIntonationScale')}:{' '}
+                    {voicepeakIntonationScale}
+                  </div>
+                  <input
+                    type="range"
+                    min={0.0}
+                    max={2.0}
+                    step={0.01}
+                    value={voicepeakIntonationScale}
+                    className="mt-2 mb-4 input-range"
+                    onChange={(e) => {
+                      settingsStore.setState({
+                        voicepeakIntonationScale: Number(e.target.value),
+                      })
+                    }}
+                  />
+                  <div className="select-none">
+                    {t('PreSilenceDuration')}:{' '}
+                    {voicepeakPrePhonemeLength}{' '}
+                  </div>
+                  <input
+                    type="range"
+                    min={0.0}
+                    max={1.0}
+                    step={0.01}
+                    value={voicepeakPrePhonemeLength}
+                    className="mt-2 mb-4 input-range"
+                    onChange={(e) => {
+                      settingsStore.setState({
+                        voicepeakPrePhonemeLength: Number(e.target.value),
+                      })
+                    }}
+                  />
+                  <div className="select-none">
+                    {t('PostSilenceDuration')}:{' '}
+                    {voicepeakPostPhonemeLength}{' '}
+                  </div>
+                  <input
+                    type="range"
+                    min={0.0}
+                    max={1.0}
+                    step={0.01}
+                    value={voicepeakPostPhonemeLength}
+                    className="mt-2 mb-4 input-range"
+                    onChange={(e) => {
+                      settingsStore.setState({
+                        voicepeakPostPhonemeLength: Number(e.target.value),
+                      })
+                    }}
+                  />
                 </div>
               </>
             )

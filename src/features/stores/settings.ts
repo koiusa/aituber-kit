@@ -118,6 +118,14 @@ interface ModelProvider extends Live2DSettings {
   aivisCloudTempoDynamics: number
   aivisCloudPrePhonemeLength: number
   aivisCloudPostPhonemeLength: number
+  voicepeakSpeaker: string
+  voicepeakSpeed: number
+  voicepeakPitch: number
+  voicepeakIntonationScale: number
+  voicepeakServerUrl: string
+  voicepeakTempoDynamics: number
+  voicepeakPrePhonemeLength: number
+  voicepeakPostPhonemeLength: number
   stylebertvits2ServerUrl: string
   stylebertvits2ApiKey: string
   stylebertvits2ModelId: string
@@ -385,6 +393,24 @@ const getInitialValuesFromEnv = (): SettingsState => ({
   aivisCloudPostPhonemeLength:
     parseFloat(
       process.env.NEXT_PUBLIC_AIVIS_CLOUD_POST_PHONEME_LENGTH || '0.1'
+    ) || 0.1,
+  voicepeakSpeaker: process.env.NEXT_PUBLIC_VOICEPEAK_SPEAKER || '1',
+  voicepeakSpeed:
+    parseFloat(process.env.NEXT_PUBLIC_VOICEPEAK_SPEED || '1.0') || 1.0,
+  voicepeakPitch:
+    parseFloat(process.env.NEXT_PUBLIC_VOICEPEAK_PITCH || '0.0') || 0.0,
+  voicepeakIntonationScale:
+    parseFloat(process.env.NEXT_PUBLIC_VOICEPEAK_INTONATION_SCALE || '1.0') ||
+    1.0,
+  voicepeakServerUrl: '',
+  voicepeakTempoDynamics:
+    parseFloat(process.env.NEXT_PUBLIC_VOICEPEAK_TEMPO_DYNAMICS || '1.0') || 1.0,
+  voicepeakPrePhonemeLength:
+    parseFloat(process.env.NEXT_PUBLIC_VOICEPEAK_PRE_PHONEME_LENGTH || '0.1') ||
+    0.1,
+  voicepeakPostPhonemeLength:
+    parseFloat(
+      process.env.NEXT_PUBLIC_VOICEPEAK_POST_PHONEME_LENGTH || '0.1'
     ) || 0.1,
   stylebertvits2ServerUrl: '',
   stylebertvits2ModelId: process.env.NEXT_PUBLIC_STYLEBERTVITS2_MODEL_ID || '0',
@@ -892,6 +918,15 @@ const settingsStore = create<SettingsState>()(
         aivisCloudTempoDynamics: state.aivisCloudTempoDynamics,
         aivisCloudPrePhonemeLength: state.aivisCloudPrePhonemeLength,
         aivisCloudPostPhonemeLength: state.aivisCloudPostPhonemeLength,
+        voiceServerUrl: state.aivisSpeechServerUrl,
+        voicepeakSpeaker: state.voicepeakSpeaker,
+        voicepeakSpeed: state.voicepeakSpeed,
+        voicepeakPitch: state.voicepeakPitch,
+        voicepeakIntonationScale: state.voicepeakIntonationScale,
+        voicepeakServerUrl: state.voicepeakServerUrl,
+        voicepeakTempoDynamics: state.voicepeakTempoDynamics,
+        voicepeakPrePhonemeLength: state.voicepeakPrePhonemeLength,
+        voicepeakPostPhonemeLength: state.voicepeakPostPhonemeLength,
         stylebertvits2ServerUrl: state.stylebertvits2ServerUrl,
         stylebertvits2ModelId: state.stylebertvits2ModelId,
         stylebertvits2ApiKey: state.stylebertvits2ApiKey,
