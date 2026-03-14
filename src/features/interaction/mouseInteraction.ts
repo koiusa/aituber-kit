@@ -23,7 +23,18 @@ export class MouseInteraction {
     
       private _onMouseClick(event: MouseEvent) {
             if (this.isHit()) {
-                  this.interaction('/animations/interaction/idle_tired.vrma')
+                  const files = [
+                  '/animations/interaction/VRMA_01.vrma',
+                  '/animations/interaction/VRMA_02.vrma',
+                  '/animations/interaction/VRMA_03.vrma',
+                  '/animations/interaction/VRMA_04.vrma',
+                  '/animations/interaction/VRMA_05.vrma',
+                  '/animations/interaction/VRMA_06.vrma',
+                  '/animations/interaction/VRMA_07.vrma',
+                  '/animations/interaction/idle_tired.vrma',
+                  ]
+                  const file = files[Math.floor(Math.random() * files.length)]
+                  this.interaction(file)
             }
       }
 
@@ -40,7 +51,7 @@ export class MouseInteraction {
       }
 
       private async defaultAnimation() {
-            const vrma = await loadVRMAnimation(buildUrl('/animations/idle_loop_custom.vrma'))
+            const vrma = await loadVRMAnimation(buildUrl('/animations/idle_loop.vrma'))
             if (vrma) this._model.loadAnimation(vrma)
       }
 }
