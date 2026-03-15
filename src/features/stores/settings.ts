@@ -208,6 +208,8 @@ interface Character {
   pngTuberOffsetX: number
   pngTuberOffsetY: number
   poseConfigs: PoseConfigItem[]
+  thinkingPoseEnabled: boolean
+  thinkingPoseId: string
 }
 
 // Pose config item type
@@ -678,6 +680,9 @@ const getInitialValuesFromEnv = (): SettingsState => ({
       switchDuration: 0.2,
     },
   ],
+  thinkingPoseEnabled:
+    process.env.NEXT_PUBLIC_THINKING_POSE_ENABLED === 'true' || false,
+  thinkingPoseId: process.env.NEXT_PUBLIC_THINKING_POSE_ID || 'think',
 
   // Memory settings
   memoryEnabled:
@@ -1092,6 +1097,8 @@ const settingsStore = create<SettingsState>()(
         kioskMaxInputLength: state.kioskMaxInputLength,
         kioskNgWords: state.kioskNgWords,
         kioskNgWordEnabled: state.kioskNgWordEnabled,
+        thinkingPoseEnabled: state.thinkingPoseEnabled,
+        thinkingPoseId: state.thinkingPoseId,
       }),
     })
   )
