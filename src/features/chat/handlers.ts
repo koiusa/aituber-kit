@@ -8,6 +8,7 @@ import slideStore from '@/features/stores/slide'
 import { goToSlide } from '@/components/slides'
 import { messageSelectors } from '../messages/messageSelectors'
 import webSocketStore from '@/features/stores/websocketStore'
+import externalLinkageWebSocketStore from '@/features/stores/externalLinkageWebSocketStore'
 import i18next from 'i18next'
 import toastStore from '@/features/stores/toast'
 import { generateMessageId } from '@/utils/messageUtils'
@@ -17,6 +18,11 @@ import {
   searchMemoryContext,
 } from '@/features/memory/memoryStoreSync'
 import { THINKING_MARKER } from '@/features/chat/vercelAIChat'
+import {
+  createExternalLinkageLifecycleEvent,
+  createLegacyExternalLinkageChatPayload,
+  createV2ExternalLinkageChatEvent,
+} from '@/features/externalLinkage/externalLinkageProtocol'
 
 // セッションIDを生成する関数
 const generateSessionId = () => generateMessageId()
@@ -24,98 +30,67 @@ const generateSessionId = () => generateMessageId()
 // コードブロックのデリミネーター
 const CODE_DELIMITER = '```'
 
-/**
- * AI判断機能でマルチモーダルを使用するかどうかを決定する
- * @param userMessage ユーザーメッセージ
- * @param image 画像データ
- * @param decisionPrompt AI判断用プロンプト
- * @returns 画像を使用するかどうか
- */
-const askAIForMultiModalDecision = async (
-  userMessage: string,
-  image: string,
-  decisionPrompt: string
-): Promise<boolean> => {
-  try {
-    // 直近の会話履歴を取得（最新3つまで）
-    const currentChatLog = homeStore.getState().chatLog
-    const recentMessages = currentChatLog.slice(-3)
+type ExternalSpeechLifecycleState = {
+  pendingSpeechCount: number
+  speechSegmentCount: number
+  responseEnded: boolean
+  responseDoneSent: boolean
+}
 
-    // 会話履歴をテキストとして構築
-    let conversationHistory = ''
-    if (recentMessages.length > 0) {
-      conversationHistory = '\n\n直近の会話履歴:\n'
-      // cutImageMessage関数を使用して画像メッセージをテキストに変換
-      const textOnlyMessages = messageSelectors.cutImageMessage(recentMessages)
-      textOnlyMessages.forEach((msg, index) => {
-        const content = msg.content || ''
-        conversationHistory += `${index + 1}. ${msg.role === 'user' ? 'ユーザー' : 'アシスタント'}: ${content}\n`
-      })
-    }
+const externalSpeechLifecycleStates = new Map<
+  string,
+  ExternalSpeechLifecycleState
+>()
 
-    // AI判断用のメッセージを構築
-    const decisionMessage: Message = {
-      role: 'user',
-      content: [
-        {
-          type: 'text',
-          text: `Conversation History:\n${conversationHistory}\n\nUser Message: "${userMessage}"`,
-        },
-        { type: 'image', image: image },
-      ],
-      timestamp: new Date().toISOString(),
-    }
+const getExternalSpeechLifecycleState = (requestId: string) => {
+  const existing = externalSpeechLifecycleStates.get(requestId)
+  if (existing) return existing
 
-    // AI判断用のシステムプロンプト
-    const systemMessage: Message = {
-      role: 'system',
-      content: decisionPrompt,
-    }
-
-    // AIに判断を求める
-    const response = await getAIChatResponseStream([
-      systemMessage,
-      decisionMessage,
-    ])
-
-    if (!response) {
-      return false // エラーの場合は画像を使用しない
-    }
-
-    // ReadableStreamからテキストを取得
-    const reader = response.getReader()
-    let result = ''
-
-    try {
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        result += value
-      }
-    } finally {
-      reader.releaseLock()
-    }
-
-    const decision = result.trim().toLowerCase()
-
-    // 各言語の肯定的な回答をチェック
-    const affirmativeResponses = [
-      'はい',
-      'yes',
-      'oui',
-      'sí',
-      'ja',
-      '是',
-      '예',
-      'tak',
-      'da',
-      'sim',
-    ]
-    return affirmativeResponses.some((response) => decision.includes(response))
-  } catch (error) {
-    console.error('AI判断でエラーが発生しました:', error)
-    return false // エラーの場合は画像を使用しない
+  const state: ExternalSpeechLifecycleState = {
+    pendingSpeechCount: 0,
+    speechSegmentCount: 0,
+    responseEnded: false,
+    responseDoneSent: false,
   }
+  externalSpeechLifecycleStates.set(requestId, state)
+  return state
+}
+
+const sendExternalLinkageLifecycleEvent = (
+  type: string,
+  requestId?: string | null,
+  payload: Record<string, unknown> = {}
+) => {
+  if (!requestId) return
+
+  const state = externalLinkageWebSocketStore.getState()
+  if (state.protocolVersion !== '2') return
+
+  state.send(
+    JSON.stringify(
+      createExternalLinkageLifecycleEvent(type, requestId, payload)
+    )
+  )
+}
+
+const maybeSendExternalResponseDone = (requestId?: string | null) => {
+  if (!requestId) return
+
+  const state = getExternalSpeechLifecycleState(requestId)
+  if (
+    !state.responseEnded ||
+    state.pendingSpeechCount > 0 ||
+    state.responseDoneSent
+  ) {
+    return
+  }
+
+  state.responseDoneSent = true
+  sendExternalLinkageLifecycleEvent('character.response.done', requestId, {
+    speechSegmentCount: state.speechSegmentCount,
+    completedAt: new Date().toISOString(),
+  })
+  externalSpeechLifecycleStates.delete(requestId)
 }
 
 /**
@@ -173,7 +148,7 @@ const extractSentence = (
   text: string
 ): { sentence: string; remainingText: string } => {
   const sentenceMatch = text.match(
-    /^(.{1,19}?(?:[。．.!?！？\n]|(?=\[))|.{20,}?(?:[、,。．.!?！？\n]|(?=\[)))/
+    /^(.{1,9}?(?:[。．.!?！？\n]|(?=\[))|.{10,}?(?:[、,。．.!?！？\n]|(?=\[)))/
   )
   if (sentenceMatch?.[0]) {
     return {
@@ -810,13 +785,13 @@ export const handleSendChatFn =
 
     const ss = settingsStore.getState()
     const sls = slideStore.getState()
-    const wsManager = webSocketStore.getState().wsManager
+    const externalWsManager = externalLinkageWebSocketStore.getState().wsManager
     const modalImage = homeStore.getState().modalImage
 
     if (ss.externalLinkageMode) {
       homeStore.setState({ chatProcessing: true })
 
-      if (wsManager?.websocket?.readyState === WebSocket.OPEN) {
+      if (externalWsManager?.websocket?.readyState === WebSocket.OPEN) {
         const userMessageContent: Message['content'] = modalImage
           ? [
               { type: 'text' as const, text: newMessage },
@@ -837,14 +812,35 @@ export const handleSendChatFn =
           timestamp: timestamp,
         }).catch(() => {})
 
-        const wsPayload: { content: string; type: string; image?: string } = {
-          content: newMessage,
-          type: 'chat',
+        const externalWsState = externalLinkageWebSocketStore.getState()
+        const wsPayload =
+          externalWsState.protocolVersion === '2'
+            ? createV2ExternalLinkageChatEvent(
+                newMessage,
+                modalImage || undefined
+              )
+            : createLegacyExternalLinkageChatPayload(
+                newMessage,
+                modalImage || undefined
+              )
+        if ('id' in wsPayload) {
+          externalWsState.startRequest(wsPayload.id)
         }
-        if (modalImage) {
-          wsPayload.image = modalImage
+        try {
+          externalWsManager.websocket.send(JSON.stringify(wsPayload))
+        } catch (error) {
+          console.error('Failed to send external linkage message:', error)
+          if ('id' in wsPayload) {
+            externalWsState.failRequest(wsPayload.id, 'WebSocket send failed')
+          }
+          homeStore.setState({ chatProcessing: false })
+          toastStore.getState().addToast({
+            message: i18next.t('Toasts.WebSocketConnectionError'),
+            type: 'error',
+            tag: 'external-linkage-websocket-send-error',
+          })
+          return
         }
-        wsManager.websocket.send(JSON.stringify(wsPayload))
 
         if (modalImage) {
           homeStore.setState({ modalImage: '' })
@@ -860,6 +856,7 @@ export const handleSendChatFn =
         })
       }
     } else if (ss.realtimeAPIMode) {
+      const wsManager = webSocketStore.getState().wsManager
       if (wsManager?.websocket?.readyState === WebSocket.OPEN) {
         homeStore.getState().upsertMessage({
           role: 'user',
@@ -924,7 +921,6 @@ export const handleSendChatFn =
           ss.selectAIService,
           ss.selectAIModel,
           ss.enableMultiModal,
-          ss.multiModalMode,
           ss.customModel
         )
       ) {
@@ -940,34 +936,13 @@ export const handleSendChatFn =
         return
       }
 
-      // マルチモーダルモードに基づいてメッセージコンテンツを構築
+      // 画像が添付されている場合はマルチモーダルメッセージを構築
       let userMessageContent: Message['content'] = newMessage
-      let shouldUseImage = false
-
       if (modalImage) {
-        switch (ss.multiModalMode) {
-          case 'always':
-            shouldUseImage = true
-            break
-          case 'never':
-            shouldUseImage = false
-            break
-          case 'ai-decide':
-            // AI判断モードの場合は、AIに判断を求める
-            shouldUseImage = await askAIForMultiModalDecision(
-              newMessage,
-              modalImage,
-              ss.multiModalAiDecisionPrompt
-            )
-            break
-        }
-
-        if (shouldUseImage) {
-          userMessageContent = [
-            { type: 'text' as const, text: newMessage },
-            { type: 'image' as const, image: modalImage },
-          ]
-        }
+        userMessageContent = [
+          { type: 'text' as const, text: newMessage },
+          { type: 'image' as const, image: modalImage },
+        ]
       }
 
       homeStore.getState().upsertMessage({
@@ -1047,14 +1022,15 @@ export const handleReceiveTextFromWsFn =
     role?: string,
     emotion: EmotionType = 'neutral',
     type?: string,
-    image?: string
+    image?: string,
+    requestId?: string
   ) => {
     const sessionId = generateSessionId()
     if (text === null || role === undefined) return
 
     const ss = settingsStore.getState()
     const hs = homeStore.getState()
-    const wsManager = webSocketStore.getState().wsManager
+    const wsManager = externalLinkageWebSocketStore.getState().wsManager
 
     if (ss.externalLinkageMode) {
       console.log('ExternalLinkage Mode: true')
@@ -1064,6 +1040,14 @@ export const handleReceiveTextFromWsFn =
     }
 
     homeStore.setState({ chatProcessing: true })
+    sendExternalLinkageLifecycleEvent('character.message.received', requestId, {
+      text,
+      role,
+      emotion,
+      messageType: type ?? '',
+      hasImage: Boolean(image),
+      receivedAt: new Date().toISOString(),
+    })
 
     if (role !== 'user') {
       if (type === 'start') {
@@ -1099,6 +1083,18 @@ export const handleReceiveTextFromWsFn =
           role: role,
           content: appendedContent,
         })
+        sendExternalLinkageLifecycleEvent(
+          'character.message.rendered',
+          requestId,
+          {
+            text,
+            role,
+            emotion,
+            messageType: type ?? '',
+            hasImage: Boolean(image),
+            renderedAt: new Date().toISOString(),
+          }
+        )
       } else {
         // 新しいメッセージを追加（新規IDを生成）
         const messageContent: Message['content'] = image
@@ -1112,10 +1108,28 @@ export const handleReceiveTextFromWsFn =
           role: role,
           content: messageContent,
         })
+        sendExternalLinkageLifecycleEvent(
+          'character.message.rendered',
+          requestId,
+          {
+            text,
+            role,
+            emotion,
+            messageType: type ?? '',
+            hasImage: Boolean(image),
+            renderedAt: new Date().toISOString(),
+          }
+        )
         wsManager?.setTextBlockStarted(true)
       }
 
       if (role === 'assistant' && text !== '') {
+        const speechSegmentId = generateMessageId()
+        if (requestId) {
+          const lifecycleState = getExternalSpeechLifecycleState(requestId)
+          lifecycleState.pendingSpeechCount += 1
+          lifecycleState.speechSegmentCount += 1
+        }
         try {
           // 文ごとに音声を生成 & 再生、返答を表示
           speakCharacter(
@@ -1126,13 +1140,61 @@ export const handleReceiveTextFromWsFn =
             },
             () => {
               // assistantMessage is now derived from chatLog, no need to set it separately
+              sendExternalLinkageLifecycleEvent(
+                'character.speech.start',
+                requestId,
+                {
+                  speechSegmentId,
+                  text,
+                  emotion,
+                  startedAt: new Date().toISOString(),
+                }
+              )
             },
             () => {
               // hs.decrementChatProcessingCount()
+              if (requestId) {
+                const lifecycleState =
+                  getExternalSpeechLifecycleState(requestId)
+                lifecycleState.pendingSpeechCount = Math.max(
+                  0,
+                  lifecycleState.pendingSpeechCount - 1
+                )
+              }
+              sendExternalLinkageLifecycleEvent(
+                'character.speech.done',
+                requestId,
+                {
+                  speechSegmentId,
+                  text,
+                  emotion,
+                  completedAt: new Date().toISOString(),
+                }
+              )
+              maybeSendExternalResponseDone(requestId)
             }
           )
         } catch (e) {
           console.error('Error in speakCharacter:', e)
+          if (requestId) {
+            const lifecycleState = getExternalSpeechLifecycleState(requestId)
+            lifecycleState.pendingSpeechCount = Math.max(
+              0,
+              lifecycleState.pendingSpeechCount - 1
+            )
+          }
+          sendExternalLinkageLifecycleEvent(
+            'character.speech.error',
+            requestId,
+            {
+              speechSegmentId,
+              text,
+              emotion,
+              message: e instanceof Error ? e.message : String(e),
+              failedAt: new Date().toISOString(),
+            }
+          )
+          maybeSendExternalResponseDone(requestId)
         }
       }
 
@@ -1141,6 +1203,10 @@ export const handleReceiveTextFromWsFn =
         console.log('Response ended')
         wsManager?.setTextBlockStarted(false)
         homeStore.setState({ chatProcessing: false })
+        if (requestId) {
+          getExternalSpeechLifecycleState(requestId).responseEnded = true
+          maybeSendExternalResponseDone(requestId)
+        }
       }
     }
 

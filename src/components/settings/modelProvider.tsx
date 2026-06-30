@@ -17,6 +17,7 @@ import {
   getServiceConfigByKey,
 } from './modelProvider/utils/aiServiceConfigs'
 import { AIService, ReasoningEffort } from '@/features/constants/settings'
+import { DisabledSettingNote } from '@/components/settings/disabledSettingNote'
 
 const ModelProvider = () => {
   const { t } = useTranslation()
@@ -49,7 +50,6 @@ const ModelProvider = () => {
             selectAIModel={state.selectAIModel}
             customModel={state.customModel}
             enableMultiModal={state.enableMultiModal}
-            multiModalMode={state.multiModalMode}
             updateMultiModalModeForModel={updateMultiModalModeForModel}
           />
         )
@@ -206,6 +206,9 @@ const ModelProvider = () => {
                 {t('CustomAPIStream')}
               </div>
               <div className="">{t('CustomAPIStreamForced')}</div>
+              <DisabledSettingNote>
+                {t('CustomAPIStreamDisabledInfo')}
+              </DisabledSettingNote>
               <div className="my-2">
                 <ToggleSwitch
                   enabled={true}
@@ -351,8 +354,8 @@ const ModelProvider = () => {
           onChange={(value) => handleAIServiceChange(value as AIService)}
         >
           <div className="relative inline-block min-w-[240px]">
-            <Listbox.Button className="w-full px-4 py-2 bg-white hover:bg-white-hover rounded-lg flex items-center cursor-pointer">
-              <ServiceLogo service={state.selectAIService as any} />
+            <Listbox.Button className="flex w-full cursor-pointer items-center rounded-lg border border-gray-300 bg-white px-4 py-2 shadow-sm transition hover:bg-white-hover focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/20">
+              <ServiceLogo service={state.selectAIService} />
               <span>{selectedServiceOption?.label}</span>
             </Listbox.Button>
             <Listbox.Options className="absolute z-10 top-[-170px] w-auto min-w-full overflow-auto rounded-lg bg-white py-2 shadow-lg focus:outline-none">
@@ -368,7 +371,7 @@ const ModelProvider = () => {
                 >
                   {({ selected }) => (
                     <div className="flex items-center">
-                      <ServiceLogo service={option.value as any} />
+                      <ServiceLogo service={option.value} />
                       <span
                         className={selected ? 'font-medium' : 'font-normal'}
                       >
@@ -527,63 +530,33 @@ const ModelProvider = () => {
               </>
             )}
 
-          {state.isMultiModalSupported && (
-            <div className="border-t border-gray-300 pt-6 my-6">
-              <div className="my-4 text-xl font-bold">
-                {t('MultiModalMode')}
-              </div>
-              <div className="my-2 text-sm whitespace-pre-wrap">
-                {t('MultiModalModeDescription')}
-              </div>
-              <div className="my-2">
-                <select
-                  className="px-4 py-2 w-full sm:w-col-span-2 bg-white hover:bg-white-hover rounded-lg"
-                  value={state.multiModalMode}
-                  onChange={(e) =>
-                    settingsStore.setState({
-                      multiModalMode: e.target.value as
-                        | 'ai-decide'
-                        | 'always'
-                        | 'never',
-                    })
-                  }
-                >
-                  {state.selectAIService !== 'custom-api' && (
-                    <option value="ai-decide">
-                      {t('MultiModalModeAIDecide')}
-                    </option>
-                  )}
-                  <option value="always">{t('MultiModalModeAlways')}</option>
-                  <option value="never">{t('MultiModalModeNever')}</option>
-                </select>
-              </div>
-              {state.multiModalMode === 'ai-decide' &&
-                state.selectAIService !== 'custom-api' && (
-                  <div className="my-4">
-                    <div className="my-2 text-sm font-medium">
-                      {t('MultiModalAIDecisionPrompt')}
-                    </div>
-                    <textarea
-                      className="w-full px-4 py-2 bg-white hover:bg-white-hover rounded-lg text-sm"
-                      rows={3}
-                      value={state.multiModalAiDecisionPrompt}
-                      onChange={(e) => {
-                        settingsStore.setState({
-                          multiModalAiDecisionPrompt: e.target.value,
-                        })
-                      }}
-                      placeholder={t('MultiModalAIDecisionPromptPlaceholder')}
-                    />
-                  </div>
-                )}
-            </div>
-          )}
-
           {(state.realtimeAPIMode || state.audioMode) && (
             <div className="my-6 p-4 bg-white rounded-lg text-sm ">
               {t('CannotUseParameters')}
             </div>
           )}
+
+          <div className="border-t border-gray-300 pt-6 my-6">
+            <div className="my-4 text-xl font-bold">{t('MaxPastMessages')}</div>
+            <div className="my-2 text-sm whitespace-pre-wrap">
+              {t('ConversationHistoryInfo', { count: state.maxPastMessages })}
+            </div>
+            <div className="my-2">
+              <input
+                type="number"
+                min="1"
+                max="9999"
+                className="px-4 py-2 w-24 bg-white hover:bg-white-hover rounded-lg"
+                value={state.maxPastMessages}
+                onChange={(e) => {
+                  const value = parseInt(e.target.value)
+                  if (!Number.isNaN(value) && value >= 1 && value <= 9999) {
+                    settingsStore.setState({ maxPastMessages: value })
+                  }
+                }}
+              />
+            </div>
+          </div>
         </>
       )}
 

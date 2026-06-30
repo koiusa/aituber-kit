@@ -13,6 +13,7 @@ import {
   isMultiModalModel,
   isMultiModalModelWithToggle,
   isMultiModalAvailable,
+  isReasoningModel,
   isSearchGroundingModel,
   googleSearchGroundingModels,
   openAIRealtimeModels,
@@ -77,12 +78,12 @@ describe('aiModels', () => {
   })
 
   describe('getDefaultModel', () => {
-    it('should return gpt-4.1-mini for openai', () => {
-      expect(getDefaultModel('openai')).toBe('gpt-4.1-mini')
+    it('should return gpt-5.4-mini for openai', () => {
+      expect(getDefaultModel('openai')).toBe('gpt-5.4-mini')
     })
 
-    it('should return claude-sonnet-4-5 for anthropic', () => {
-      expect(getDefaultModel('anthropic')).toBe('claude-sonnet-4-5')
+    it('should return claude-sonnet-4-6 for anthropic', () => {
+      expect(getDefaultModel('anthropic')).toBe('claude-sonnet-4-6')
     })
 
     it('should return gemini-2.5-flash for google', () => {
@@ -115,8 +116,10 @@ describe('aiModels', () => {
   })
 
   describe('getSpecificDefaultModel', () => {
-    it('should return tts-1 for openaiAudio', () => {
-      expect(getSpecificDefaultModel('openaiAudio')).toBe('tts-1')
+    it('should return gpt-4o-mini-audio-preview for openaiAudio', () => {
+      expect(getSpecificDefaultModel('openaiAudio')).toBe(
+        'gpt-4o-mini-audio-preview'
+      )
     })
 
     it('should return gpt-realtime for openaiRealtime', () => {
@@ -124,7 +127,7 @@ describe('aiModels', () => {
     })
 
     it('should also work for regular AIService', () => {
-      expect(getSpecificDefaultModel('openai')).toBe('gpt-4.1-mini')
+      expect(getSpecificDefaultModel('openai')).toBe('gpt-5.4-mini')
     })
   })
 
@@ -132,6 +135,7 @@ describe('aiModels', () => {
     it('should return only multimodal models for openai', () => {
       const models = getMultiModalModels('openai')
       expect(models.length).toBeGreaterThan(0)
+      expect(models).toContain('gpt-5.4')
       expect(models).toContain('gpt-4o')
       expect(models).toContain('gpt-4.1')
     })
@@ -142,10 +146,13 @@ describe('aiModels', () => {
       expect(models).toEqual(allModels)
     })
 
-    it('should return all models for google (all are multimodal)', () => {
+    it('should return subset for google (Gemma and AQA are not multimodal)', () => {
       const models = getMultiModalModels('google')
       const allModels = getModels('google')
-      expect(models).toEqual(allModels)
+      expect(models.length).toBeLessThan(allModels.length)
+      expect(models).toContain('gemini-2.5-flash')
+      expect(models).not.toContain('aqa')
+      expect(models).not.toContain('gemma-3-27b-it')
     })
 
     it('should return subset for xai (some are not multimodal)', () => {
@@ -240,46 +247,27 @@ describe('aiModels', () => {
   })
 
   describe('isMultiModalAvailable', () => {
-    it('should return false when mode is never', () => {
-      expect(isMultiModalAvailable('openai', 'gpt-4o', true, 'never')).toBe(
-        false
-      )
+    it('should return false when enableMultiModal is false for bypass services', () => {
+      expect(isMultiModalAvailable('azure', 'any-model', false)).toBe(false)
     })
 
-    it('should delegate to isMultiModalModelWithToggle when mode is always', () => {
-      expect(isMultiModalAvailable('openai', 'gpt-4o', true, 'always')).toBe(
-        true
-      )
-      expect(
-        isMultiModalAvailable('groq', 'gemma2-9b-it', true, 'always')
-      ).toBe(false)
-    })
-
-    it('should delegate to isMultiModalModelWithToggle when mode is ai-decide', () => {
-      expect(isMultiModalAvailable('openai', 'gpt-4o', true, 'ai-decide')).toBe(
-        true
-      )
-      expect(
-        isMultiModalAvailable('groq', 'gemma2-9b-it', true, 'ai-decide')
-      ).toBe(false)
+    it('should delegate to isMultiModalModelWithToggle', () => {
+      expect(isMultiModalAvailable('openai', 'gpt-4o', true)).toBe(true)
+      expect(isMultiModalAvailable('groq', 'gemma2-9b-it', true)).toBe(false)
     })
 
     it('should respect enableMultiModal for bypass services', () => {
-      expect(isMultiModalAvailable('azure', 'any-model', true, 'always')).toBe(
-        true
-      )
-      expect(isMultiModalAvailable('azure', 'any-model', false, 'always')).toBe(
-        false
-      )
+      expect(isMultiModalAvailable('azure', 'any-model', true)).toBe(true)
+      expect(isMultiModalAvailable('azure', 'any-model', false)).toBe(false)
     })
 
     it('should respect customModel flag', () => {
-      expect(
-        isMultiModalAvailable('openai', 'custom-model', true, 'always', true)
-      ).toBe(true)
-      expect(
-        isMultiModalAvailable('openai', 'custom-model', false, 'always', true)
-      ).toBe(false)
+      expect(isMultiModalAvailable('openai', 'custom-model', true, true)).toBe(
+        true
+      )
+      expect(isMultiModalAvailable('openai', 'custom-model', false, true)).toBe(
+        false
+      )
     })
   })
 
@@ -291,13 +279,23 @@ describe('aiModels', () => {
     })
 
     it('should return false for Google non-grounding models', () => {
-      expect(isSearchGroundingModel('google', 'gemini-2.5-flash')).toBe(false)
-      expect(isSearchGroundingModel('google', 'gemini-2.0-flash')).toBe(false)
+      expect(isSearchGroundingModel('google', 'gemini-unknown')).toBe(false)
     })
 
     it('should return false for non-Google services', () => {
       expect(isSearchGroundingModel('openai', 'gemini-1.5-flash')).toBe(false)
       expect(isSearchGroundingModel('anthropic', 'claude-opus-4-5')).toBe(false)
+    })
+  })
+
+  describe('isReasoningModel', () => {
+    it('should treat Fireworks thinking models as reasoning models', () => {
+      expect(
+        isReasoningModel(
+          'fireworks',
+          'accounts/fireworks/models/kimi-k2-thinking'
+        )
+      ).toBe(true)
     })
   })
 
@@ -312,8 +310,8 @@ describe('aiModels', () => {
     it('getOpenAIAudioModels should return correct models', () => {
       const models = getOpenAIAudioModels()
       expect(models).toEqual([...openAIAudioModels])
-      expect(models).toContain('tts-1')
-      expect(models).toContain('tts-1-hd')
+      expect(models).toContain('gpt-4o-audio-preview')
+      expect(models).toContain('gpt-4o-mini-audio-preview')
     })
 
     it('getOpenAIWhisperModels should return correct models', () => {

@@ -18,6 +18,13 @@ import {
   DEFAULT_KIOSK_CONFIG,
 } from '@/features/kiosk/kioskTypes'
 import {
+  GameCommentarySettings,
+  DEFAULT_GAME_COMMENTARY_CONFIG,
+  clampBackgroundAnalysisInterval,
+  clampCaptureInterval,
+  clampContextCount,
+} from '@/features/gameCommentary/gameCommentaryTypes'
+import {
   AIService,
   AIVoice,
   Language,
@@ -231,6 +238,7 @@ interface General {
   showControlPanel: boolean
   showQuickMenu: boolean
   externalLinkageMode: boolean
+  externalLinkageUrl: string
   realtimeAPIMode: boolean
   realtimeAPIModeContentType: RealtimeAPIModeContentType
   realtimeAPIModeVoice: RealtimeAPIModeVoice | RealtimeAPIModeAzureVoice
@@ -244,6 +252,7 @@ interface General {
   dynamicRetrievalThreshold: number
   maxPastMessages: number
   useVideoAsBackground: boolean
+  hideVideoDisplay: boolean
   temperature: number
   maxTokens: number
   reasoningMode: boolean
@@ -260,7 +269,6 @@ interface General {
   initialSpeechTimeout: number
   chatLogWidth: number
   imageDisplayPosition: 'input' | 'side' | 'icon'
-  multiModalMode: 'ai-decide' | 'always' | 'never'
   multiModalAiDecisionPrompt: string
   enableMultiModal: boolean
   colorTheme: 'default' | 'cool' | 'mono' | 'ocean' | 'forest' | 'sunset'
@@ -296,7 +304,14 @@ export type SettingsState = APIKeys &
   MemoryConfig &
   PresenceDetectionSettings &
   IdleModeSettings &
-  KioskModeSettings
+  KioskModeSettings &
+  GameCommentarySettings
+
+// 0を有効値として扱う環境変数用の数値パーサー（`parseInt(...) || default` は "0" がdefaultに化ける）
+const parseEnvInt = (value: string | undefined, fallback: number): number => {
+  const parsed = parseInt(value ?? '', 10)
+  return Number.isNaN(parsed) ? fallback : parsed
+}
 
 // Function to get initial values from environment variables
 const getInitialValuesFromEnv = (): SettingsState => ({
@@ -555,6 +570,8 @@ const getInitialValuesFromEnv = (): SettingsState => ({
   showControlPanel: process.env.NEXT_PUBLIC_SHOW_CONTROL_PANEL !== 'false',
   showQuickMenu: process.env.NEXT_PUBLIC_SHOW_QUICK_MENU === 'true',
   externalLinkageMode: process.env.NEXT_PUBLIC_EXTERNAL_LINKAGE_MODE === 'true',
+  externalLinkageUrl:
+    process.env.NEXT_PUBLIC_EXTERNAL_LINKAGE_URL || 'ws://localhost:8000/ws',
   realtimeAPIMode:
     process.env.NEXT_PUBLIC_REALTIME_API_MODE === 'true' &&
     ['openai', 'azure'].includes(
@@ -585,6 +602,7 @@ const getInitialValuesFromEnv = (): SettingsState => ({
     parseInt(process.env.NEXT_PUBLIC_MAX_PAST_MESSAGES || '10') || 10,
   useVideoAsBackground:
     process.env.NEXT_PUBLIC_USE_VIDEO_AS_BACKGROUND === 'true',
+  hideVideoDisplay: process.env.NEXT_PUBLIC_HIDE_VIDEO_DISPLAY === 'true',
   temperature: parseFloat(process.env.NEXT_PUBLIC_TEMPERATURE || '1.0') || 1.0,
   maxTokens: parseInt(process.env.NEXT_PUBLIC_MAX_TOKENS || '4096') || 4096,
   reasoningMode: process.env.NEXT_PUBLIC_REASONING_MODE === 'true',
@@ -626,13 +644,6 @@ const getInitialValuesFromEnv = (): SettingsState => ({
     return validPositions.includes(envPosition as any)
       ? (envPosition as 'input' | 'side' | 'icon')
       : 'input'
-  })(),
-  multiModalMode: (() => {
-    const validModes = ['ai-decide', 'always', 'never'] as const
-    const envMode = process.env.NEXT_PUBLIC_MULTIMODAL_MODE
-    return validModes.includes(envMode as any)
-      ? (envMode as 'ai-decide' | 'always' | 'never')
-      : 'ai-decide'
   })(),
   multiModalAiDecisionPrompt:
     process.env.NEXT_PUBLIC_MULTIMODAL_AI_DECISION_PROMPT || '',
@@ -807,6 +818,51 @@ const getInitialValuesFromEnv = (): SettingsState => ({
     parseInt(process.env.NEXT_PUBLIC_KIOSK_GUIDANCE_TIMEOUT || '') ||
     DEFAULT_KIOSK_CONFIG.kioskGuidanceTimeout,
   kioskTemporaryUnlock: DEFAULT_KIOSK_CONFIG.kioskTemporaryUnlock,
+
+  // Game commentary settings
+  gameCommentaryEnabled:
+    process.env.NEXT_PUBLIC_GAME_COMMENTARY_ENABLED === 'true' ||
+    DEFAULT_GAME_COMMENTARY_CONFIG.gameCommentaryEnabled,
+  gameCommentaryPlaying: DEFAULT_GAME_COMMENTARY_CONFIG.gameCommentaryPlaying,
+  gameCommentaryCaptureInterval: clampCaptureInterval(
+    parseEnvInt(
+      process.env.NEXT_PUBLIC_GAME_COMMENTARY_CAPTURE_INTERVAL,
+      DEFAULT_GAME_COMMENTARY_CONFIG.gameCommentaryCaptureInterval
+    )
+  ),
+  gameCommentaryContextCount: clampContextCount(
+    parseEnvInt(
+      process.env.NEXT_PUBLIC_GAME_COMMENTARY_CONTEXT_COUNT,
+      DEFAULT_GAME_COMMENTARY_CONFIG.gameCommentaryContextCount
+    )
+  ),
+  gameCommentaryPromptTemplate:
+    process.env.NEXT_PUBLIC_GAME_COMMENTARY_PROMPT_TEMPLATE ||
+    DEFAULT_GAME_COMMENTARY_CONFIG.gameCommentaryPromptTemplate,
+  gameCommentaryBackgroundAnalysisPromptTemplate:
+    process.env
+      .NEXT_PUBLIC_GAME_COMMENTARY_BACKGROUND_ANALYSIS_PROMPT_TEMPLATE ||
+    DEFAULT_GAME_COMMENTARY_CONFIG.gameCommentaryBackgroundAnalysisPromptTemplate,
+  gameCommentaryImageQuality:
+    parseFloat(process.env.NEXT_PUBLIC_GAME_COMMENTARY_IMAGE_QUALITY || '') ||
+    DEFAULT_GAME_COMMENTARY_CONFIG.gameCommentaryImageQuality,
+  gameCommentaryResizeWidth: parseEnvInt(
+    process.env.NEXT_PUBLIC_GAME_COMMENTARY_RESIZE_WIDTH,
+    DEFAULT_GAME_COMMENTARY_CONFIG.gameCommentaryResizeWidth
+  ),
+  gameCommentarySaveToChat: process.env.NEXT_PUBLIC_GAME_COMMENTARY_SAVE_TO_CHAT
+    ? process.env.NEXT_PUBLIC_GAME_COMMENTARY_SAVE_TO_CHAT === 'true'
+    : DEFAULT_GAME_COMMENTARY_CONFIG.gameCommentarySaveToChat,
+  gameCommentaryBackgroundAnalysisEnabled:
+    process.env.NEXT_PUBLIC_GAME_COMMENTARY_BACKGROUND_ANALYSIS_ENABLED ===
+      'true' ||
+    DEFAULT_GAME_COMMENTARY_CONFIG.gameCommentaryBackgroundAnalysisEnabled,
+  gameCommentaryBackgroundAnalysisInterval: clampBackgroundAnalysisInterval(
+    parseEnvInt(
+      process.env.NEXT_PUBLIC_GAME_COMMENTARY_BACKGROUND_ANALYSIS_INTERVAL,
+      DEFAULT_GAME_COMMENTARY_CONFIG.gameCommentaryBackgroundAnalysisInterval
+    )
+  ),
 
   // Live2D settings
   neutralEmotions: process.env.NEXT_PUBLIC_NEUTRAL_EMOTIONS?.split(',') || [],

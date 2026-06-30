@@ -47,17 +47,7 @@ export class SpeakQueue {
     return SpeakQueue._instance
   }
 
-  /**
-   * すべての発話を停止し、キューをクリアします。
-   * Stop ボタンから呼び出されます。
-   */
-  public static stopAll() {
-    const instance = SpeakQueue.getInstance()
-    instance.stopped = true
-    // 発話キューの処理状態をリセットして次回の再生を可能にする
-    instance.isProcessing = false
-    SpeakQueue.stopTokenCounter++
-    instance.clearQueue()
+  private static stopCurrentModelSpeaking() {
     const hs = homeStore.getState()
     const ss = settingsStore.getState()
     if (ss.modelType === 'live2d') {
@@ -70,6 +60,59 @@ export class SpeakQueue {
         hs.viewer.model?.poseManager?.resetToIdle(hs.viewer.model)
       }
     }
+  }
+
+  /**
+   * 現在の発話だけを停止し、待機キューは残します。
+   */
+  public static stopCurrentSpeech() {
+    SpeakQueue.stopCurrentModelSpeaking()
+  }
+
+  /**
+   * 待機キューだけをクリアし、現在の発話は継続します。
+   */
+  public static stopQueue() {
+    SpeakQueue.getInstance().clearQueue()
+  }
+
+  /**
+   * すべての発話を停止し、キューをクリアします。
+   * Stop ボタンから呼び出されます。
+   */
+  public static stopAll() {
+    const instance = SpeakQueue.getInstance()
+    instance.stopped = true
+    // 発話キューの処理状態をリセットして次回の再生を可能にする
+    instance.isProcessing = false
+    SpeakQueue.stopTokenCounter++
+    instance.clearQueue()
+    SpeakQueue.stopCurrentModelSpeaking()
+    homeStore.setState({ isSpeaking: false })
+  }
+
+  /**
+   * 指定セッションの発話だけを停止します。
+   * 現在の発話セッションが一致しない場合は、キュー内の該当タスクだけを破棄します。
+   */
+  public static stopSession(sessionId: string | null) {
+    if (!sessionId) return
+
+    const instance = SpeakQueue.getInstance()
+    instance.queue = instance.queue.filter(
+      (task) => task.sessionId !== sessionId
+    )
+
+    if (instance.currentSessionId !== sessionId) {
+      return
+    }
+
+    instance.stopped = true
+    instance.isProcessing = false
+    SpeakQueue.stopTokenCounter++
+    instance.clearQueue()
+
+    SpeakQueue.stopCurrentModelSpeaking()
     homeStore.setState({ isSpeaking: false })
   }
 
@@ -203,7 +246,10 @@ export class SpeakQueue {
     return isComplete
   }
 
-  clearQueue() {
+  clearQueue(shouldCallOnComplete = false) {
+    if (shouldCallOnComplete) {
+      this.queue.forEach((task) => task.onComplete?.())
+    }
     this.queue = []
   }
 
@@ -225,7 +271,7 @@ export class SpeakQueue {
     // 通常時にセッションIDが変わった場合はキューをリセット
     if (this.currentSessionId !== sessionId) {
       this.currentSessionId = sessionId
-      this.clearQueue()
+      this.clearQueue(true)
       homeStore.setState({ isSpeaking: true })
     }
   }

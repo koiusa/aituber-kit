@@ -43,10 +43,11 @@ export const Menu = () => {
   const selectAIService = settingsStore((s) => s.selectAIService)
   const selectAIModel = settingsStore((s) => s.selectAIModel)
   const enableMultiModal = settingsStore((s) => s.enableMultiModal)
-  const multiModalMode = settingsStore((s) => s.multiModalMode)
   const customModel = settingsStore((s) => s.customModel)
   const youtubeMode = settingsStore((s) => s.youtubeMode)
   const youtubePlaying = settingsStore((s) => s.youtubePlaying)
+  const gameCommentaryEnabled = settingsStore((s) => s.gameCommentaryEnabled)
+  const gameCommentaryPlaying = settingsStore((s) => s.gameCommentaryPlaying)
   const slideMode = settingsStore((s) => s.slideMode)
   const slideVisible = menuStore((s) => s.slideVisible)
   const chatLog = homeStore((s) => s.chatLog)
@@ -65,7 +66,7 @@ export const Menu = () => {
 
   const [showSettings, setShowSettings] = useState(false)
 
-  // キオスクモードで設定アクセス権が剥奪された場合に自動クローズ
+  // デモ端末モードで設定アクセス権が剥奪された場合に自動クローズ
   useEffect(() => {
     if (!canAccessSettings) {
       setShowSettings(false)
@@ -81,6 +82,7 @@ export const Menu = () => {
   const [chatLogMode, setChatLogMode] = useState<number>(
     CHAT_LOG_MODE.ASSISTANT
   )
+  const [showToolMenu, setShowToolMenu] = useState(false)
   const [showPermissionModal, setShowPermissionModal] = useState(false)
   const imageFileInputRef = useRef<HTMLInputElement>(null)
 
@@ -204,6 +206,18 @@ export const Menu = () => {
     }
   }, [youtubePlaying])
 
+  const toggleGameCommentary = useCallback(() => {
+    const nextPlaying = !gameCommentaryPlaying
+    settingsStore.setState({ gameCommentaryPlaying: nextPlaying })
+    if (nextPlaying) {
+      // 開始時: キャプチャが未表示なら自動で表示する
+      if (!showCapture) {
+        menuStore.setState({ showCapture: true, showWebcam: false })
+        homeStore.setState({ webcamStatus: false })
+      }
+    }
+  }, [gameCommentaryPlaying, showCapture])
+
   const toggleCapture = useCallback(() => {
     menuStore.setState(({ showCapture }) => ({ showCapture: !showCapture }))
     menuStore.setState({ showWebcam: false }) // Captureを表示するときWebcamを非表示にする
@@ -236,21 +250,26 @@ export const Menu = () => {
 
       <div className="absolute z-15 m-3 sm:m-6">
         <div
-          className="grid md:grid-flow-col gap-[8px] mb-10"
+          className="theme-surface-popover relative mb-10 grid grid-flow-col gap-1 rounded-xl border p-1 shadow-md backdrop-blur-md"
           style={{ width: 'max-content' }}
         >
           {effectiveShowControlPanel && (
             <>
               {canAccessSettings && (
-                <div className="md:order-1 order-2">
+                <div className="order-1">
                   <IconButton
                     iconName="24/Settings"
                     isProcessing={false}
                     onClick={() => setShowSettings(true)}
+                    aria-label={t('Settings')}
+                    data-testid="open-settings-button"
+                    backgroundColor="bg-transparent hover:bg-primary/10 active:bg-primary/15 disabled:bg-transparent"
+                    iconColor="text-text1"
+                    className="transition-colors duration-200"
                   ></IconButton>
                 </div>
               )}
-              <div className="md:order-2 order-1">
+              <div className="order-2">
                 <IconButton
                   iconName={
                     chatLogMode === CHAT_LOG_MODE.CHAT_LOG
@@ -260,37 +279,65 @@ export const Menu = () => {
                         : '24/Close'
                   }
                   label={t('ChatLog')}
+                  labelClassName="hidden sm:block"
                   isProcessing={false}
                   onClick={() => setChatLogMode((prev) => (prev + 1) % 3)}
+                  aria-label={t('ChatLog')}
+                  backgroundColor="bg-transparent hover:bg-primary/10 active:bg-primary/15 disabled:bg-transparent"
+                  iconColor="text-text1"
+                  className="transition-colors duration-200"
                 />
               </div>
-              {!youtubeMode && (
-                <>
-                  <div className="order-3">
-                    <IconButton
-                      iconName="screen-share"
-                      isProcessing={false}
-                      onClick={toggleCapture}
-                    />
-                  </div>
-                  <div className="order-4">
-                    <IconButton
-                      iconName="24/Camera"
-                      isProcessing={false}
-                      onClick={toggleWebcam}
-                    />
-                  </div>
+              <div className="order-3">
+                <IconButton
+                  iconName={showToolMenu ? '24/Close' : '24/Menu'}
+                  label={t('Tools')}
+                  labelClassName="hidden sm:block"
+                  isProcessing={false}
+                  onClick={() => setShowToolMenu((prev) => !prev)}
+                  aria-label={t('Tools')}
+                  aria-expanded={showToolMenu}
+                  data-testid="main-tools-toggle-button"
+                  backgroundColor="bg-transparent hover:bg-primary/10 active:bg-primary/15 disabled:bg-transparent"
+                  iconColor="text-text1"
+                  className="transition-colors duration-200"
+                />
+              </div>
+              {showToolMenu && (
+                <div
+                  className="theme-surface-popover absolute left-0 top-full z-20 mt-2 grid w-max min-w-[180px] max-w-[calc(100vw-24px)] gap-2 rounded-lg border p-2 shadow-xl backdrop-blur sm:min-w-[220px]"
+                  data-testid="main-tools-menu"
+                >
+                  <ToolMenuButton
+                    iconName="screen-share"
+                    label={
+                      showCapture
+                        ? (t(
+                            'StopScreenShare',
+                            'Stop screen sharing'
+                          ) as string)
+                        : t('ScreenShare')
+                    }
+                    active={showCapture}
+                    onClick={toggleCapture}
+                    data-testid="capture-toggle-button"
+                  />
+                  <ToolMenuButton
+                    iconName="24/Camera"
+                    label={t('Camera')}
+                    active={showWebcam}
+                    onClick={toggleWebcam}
+                  />
                   {isMultiModalAvailable(
                     selectAIService as AIService,
                     selectAIModel,
                     enableMultiModal,
-                    multiModalMode,
                     customModel
                   ) && (
-                    <div className="order-4">
-                      <IconButton
+                    <>
+                      <ToolMenuButton
                         iconName="24/AddImage"
-                        isProcessing={false}
+                        label={t('SelectImage')}
                         onClick={() => imageFileInputRef.current?.click()}
                       />
                       <input
@@ -310,33 +357,55 @@ export const Menu = () => {
                           }
                         }}
                       />
-                    </div>
+                    </>
                   )}
-                </>
-              )}
-              {youtubeMode && (
-                <div className="order-5">
-                  <IconButton
-                    iconName={youtubePlaying ? '24/PauseAlt' : '24/Video'}
-                    isProcessing={false}
-                    onClick={() =>
-                      settingsStore.setState({
-                        youtubePlaying: !youtubePlaying,
-                      })
-                    }
-                  />
-                </div>
-              )}
-              {slideMode && (
-                <div className="order-5">
-                  <IconButton
-                    iconName="24/FrameEffect"
-                    isProcessing={false}
-                    onClick={() =>
-                      menuStore.setState({ slideVisible: !slideVisible })
-                    }
-                    disabled={slidePlaying}
-                  />
+                  {youtubeMode && (
+                    <ToolMenuButton
+                      iconName={youtubePlaying ? '24/PauseAlt' : '24/Video'}
+                      label={
+                        youtubePlaying ? t('PauseYoutube') : t('StartYoutube')
+                      }
+                      active={youtubePlaying}
+                      onClick={() =>
+                        settingsStore.setState({
+                          youtubePlaying: !youtubePlaying,
+                        })
+                      }
+                      aria-pressed={youtubePlaying}
+                      data-testid="youtube-play-toggle-button"
+                    />
+                  )}
+                  {gameCommentaryEnabled && (
+                    <ToolMenuButton
+                      iconName={
+                        gameCommentaryPlaying
+                          ? '24/PauseAlt'
+                          : 'game-controller'
+                      }
+                      label={
+                        gameCommentaryPlaying
+                          ? t('PauseGameCommentary')
+                          : t('StartGameCommentary')
+                      }
+                      active={gameCommentaryPlaying}
+                      onClick={toggleGameCommentary}
+                      aria-pressed={gameCommentaryPlaying}
+                      data-testid="game-commentary-play-toggle-button"
+                    />
+                  )}
+                  {slideMode && (
+                    <ToolMenuButton
+                      iconName="24/FrameEffect"
+                      label={slideVisible ? t('HideSlide') : t('ShowSlide')}
+                      active={slideVisible}
+                      onClick={() =>
+                        menuStore.setState({ slideVisible: !slideVisible })
+                      }
+                      disabled={slidePlaying}
+                      aria-pressed={slideVisible}
+                      data-testid="slide-visibility-toggle-button"
+                    />
+                  )}
                 </div>
               )}
             </>
@@ -403,3 +472,31 @@ export const Menu = () => {
     </>
   )
 }
+
+const ToolMenuButton = ({
+  active = false,
+  iconName,
+  label,
+  ...rest
+}: Omit<
+  React.ComponentProps<typeof IconButton>,
+  'backgroundColor' | 'iconColor' | 'isProcessing' | 'label'
+> & {
+  active?: boolean
+  label: string
+}) => (
+  <IconButton
+    {...rest}
+    aria-label={rest['aria-label'] ?? label}
+    iconName={iconName}
+    label={label}
+    isProcessing={false}
+    backgroundColor={
+      active
+        ? 'bg-primary hover:bg-primary-hover active:bg-primary-press disabled:bg-primary-disabled disabled:cursor-not-allowed'
+        : 'theme-surface-control border disabled:cursor-not-allowed disabled:opacity-50'
+    }
+    iconColor={active ? 'text-theme' : 'text-text1'}
+    className={`w-full !justify-start rounded-lg ${rest.className ?? ''}`}
+  />
+)

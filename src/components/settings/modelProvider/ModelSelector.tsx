@@ -7,6 +7,7 @@ import {
   isReasoningModel,
 } from '@/features/constants/aiModels'
 import { AIService } from '@/features/constants/settings'
+import { ModelCapabilityLegend } from '@/components/settings/modelProvider/ModelCapabilityLegend'
 
 interface ModelSelectorProps {
   aiService: AIService
@@ -62,31 +63,34 @@ export const ModelSelector = ({
             onBlur={(e) => handleCustomModelBlur(e.target.value)}
           />
         ) : (
-          <select
-            className="px-4 py-2 w-full sm:w-col-span-2 bg-white hover:bg-white-hover rounded-lg"
-            value={selectedModel}
-            onChange={(e) => onModelChange(e.target.value)}
-          >
-            {getModels(aiService).map((model) => {
-              const isMultiModal = isMultiModalModel(aiService, model)
-              const isSearchEnabled = isSearchGroundingModel(aiService, model)
-              const isReasoning = isReasoningModel(aiService, model)
-              const iconList: string[] = []
-              if (isMultiModal) iconList.push('📷')
-              if (isSearchEnabled) iconList.push('🔍')
-              if (isReasoning) iconList.push('💡')
-              const icons = iconList.join(' ')
-              return (
-                <option key={model} value={model}>
-                  {model} {icons}
-                </option>
-              )
-            })}
-          </select>
+          <>
+            <select
+              className="px-4 py-2 w-full sm:w-col-span-2 bg-white hover:bg-white-hover rounded-lg"
+              value={selectedModel}
+              onChange={(e) => onModelChange(e.target.value)}
+            >
+              {getModels(aiService).map((model) => {
+                const isMultiModal = isMultiModalModel(aiService, model)
+                const isSearchEnabled = isSearchGroundingModel(aiService, model)
+                const isReasoning = isReasoningModel(aiService, model)
+                const iconList: string[] = []
+                if (isMultiModal) iconList.push('📷')
+                if (isSearchEnabled) iconList.push('🔍')
+                if (isReasoning) iconList.push('💡')
+                const icons = iconList.join(' ')
+                return (
+                  <option key={model} value={model}>
+                    {model} {icons}
+                  </option>
+                )
+              })}
+            </select>
+            <ModelCapabilityLegend />
+          </>
         )}
       </div>
 
-      {showMultiModalToggle && customModel && onMultiModalToggle && (
+      {showMultiModalToggle && onMultiModalToggle && (
         <div className="my-6">
           <div className="my-4 text-xl font-bold">{t('EnableMultiModal')}</div>
           <div className="my-2">

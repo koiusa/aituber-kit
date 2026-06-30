@@ -23,6 +23,13 @@ const nextConfig = {
         './coverage/**/*',
       ],
     },
+    outputFileTracingIncludes: {
+      '*': [
+        './node_modules/@posthog/core/dist/logs/**/*',
+        './node_modules/unist-util-visit-parents/lib/color*.js',
+        './node_modules/vfile/lib/min*.js',
+      ],
+    },
   }),
   env: {
     NEXT_PUBLIC_BASE_PATH: process.env.BASE_PATH || '',

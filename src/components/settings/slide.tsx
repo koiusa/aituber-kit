@@ -10,6 +10,7 @@ import { TextButton } from '../textButton'
 import { ToggleSwitch } from '../toggleSwitch'
 import SlideConvert from './slideConvert'
 import { useRestrictedMode } from '@/hooks/useRestrictedMode'
+import { DisabledSettingNote } from '@/components/settings/disabledSettingNote'
 
 const Slide = () => {
   const { t } = useTranslation()
@@ -17,7 +18,6 @@ const Slide = () => {
   const selectAIService = settingsStore((s) => s.selectAIService)
   const selectAIModel = settingsStore((s) => s.selectAIModel)
   const enableMultiModal = settingsStore((s) => s.enableMultiModal)
-  const multiModalMode = settingsStore((s) => s.multiModalMode)
   const customModel = settingsStore((s) => s.customModel)
 
   const slideMode = settingsStore((s) => s.slideMode)
@@ -54,7 +54,6 @@ const Slide = () => {
     selectAIService,
     selectAIModel,
     enableMultiModal,
-    multiModalMode,
     customModel
   )
 
@@ -74,11 +73,15 @@ const Slide = () => {
       <p className="my-2 text-sm whitespace-pre-wrap">
         {t('SlideModeDescription')}
       </p>
+      <DisabledSettingNote show={!isSlideAvailable}>
+        {t('SlideModeDisabledInfo')}
+      </DisabledSettingNote>
       <div className="my-2">
         <ToggleSwitch
           enabled={slideMode}
           onChange={() => toggleSlideMode()}
           disabled={!isSlideAvailable}
+          testId="slide-mode-toggle"
         />
       </div>
       <div className="mt-6 mb-4 text-xl font-bold">
@@ -88,6 +91,7 @@ const Slide = () => {
       <div className="flex items-center gap-2">
         <select
           id="folder-select"
+          data-testid="slide-folder-select"
           className="px-4 py-2 bg-white hover:bg-white-hover rounded-lg w-full md:w-1/2"
           value={selectedSlideDocs || ''}
           onChange={handleFolderChange}

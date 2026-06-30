@@ -27,37 +27,106 @@ interface ModelInfo {
 const modelDefinitions: Record<AIService, ModelInfo[]> = {
   openai: [
     {
+      name: 'gpt-5.5',
+      multiModal: true,
+      reasoningEfforts: ['minimal', 'low', 'medium', 'high'],
+    },
+    {
+      name: 'gpt-5.5-2026-04-23',
+      multiModal: true,
+      reasoningEfforts: ['minimal', 'low', 'medium', 'high'],
+    },
+    {
+      name: 'gpt-5.4-pro',
+      multiModal: true,
+      reasoningEfforts: ['minimal', 'low', 'medium', 'high'],
+    },
+    {
+      name: 'gpt-5.4-pro-2026-03-05',
+      multiModal: true,
+      reasoningEfforts: ['minimal', 'low', 'medium', 'high'],
+    },
+    {
+      name: 'gpt-5.4',
+      multiModal: true,
+      reasoningEfforts: ['minimal', 'low', 'medium', 'high'],
+    },
+    {
+      name: 'gpt-5.4-2026-03-05',
+      multiModal: true,
+      reasoningEfforts: ['minimal', 'low', 'medium', 'high'],
+    },
+    {
+      name: 'gpt-5.4-mini',
+      multiModal: true,
+      isDefault: true,
+      reasoningEfforts: ['minimal', 'low', 'medium', 'high'],
+    },
+    {
+      name: 'gpt-5.4-mini-2026-03-17',
+      multiModal: true,
+      reasoningEfforts: ['minimal', 'low', 'medium', 'high'],
+    },
+    {
+      name: 'gpt-5.4-nano',
+      multiModal: true,
+      reasoningEfforts: ['minimal', 'low', 'medium', 'high'],
+    },
+    {
+      name: 'gpt-5.4-nano-2026-03-17',
+      multiModal: true,
+      reasoningEfforts: ['minimal', 'low', 'medium', 'high'],
+    },
+    { name: 'gpt-5.3-chat-latest', multiModal: true },
+    {
+      name: 'gpt-5.3-codex',
+      reasoningEfforts: ['minimal', 'low', 'medium', 'high'],
+    },
+    {
       name: 'gpt-5.2-pro',
       multiModal: true,
       reasoningEfforts: ['minimal', 'low', 'medium', 'high'],
     },
     {
-      name: 'gpt-5.2-chat-latest',
+      name: 'gpt-5.2-pro-2025-12-11',
       multiModal: true,
       reasoningEfforts: ['minimal', 'low', 'medium', 'high'],
     },
+    { name: 'gpt-5.2-chat-latest', multiModal: true },
     {
       name: 'gpt-5.2',
       multiModal: true,
       reasoningEfforts: ['minimal', 'low', 'medium', 'high'],
     },
     {
-      name: 'gpt-5.1-codex-mini',
+      name: 'gpt-5.2-2025-12-11',
       multiModal: true,
+      reasoningEfforts: ['minimal', 'low', 'medium', 'high'],
+    },
+    {
+      name: 'gpt-5.2-codex',
+      reasoningEfforts: ['minimal', 'low', 'medium', 'high'],
+    },
+    {
+      name: 'gpt-5.1-codex-mini',
       reasoningEfforts: ['none', 'minimal', 'low', 'medium', 'high'],
     },
     {
       name: 'gpt-5.1-codex',
-      multiModal: true,
       reasoningEfforts: ['none', 'minimal', 'low', 'medium', 'high'],
     },
     {
-      name: 'gpt-5.1-chat-latest',
-      multiModal: true,
+      name: 'gpt-5.1-codex-max',
       reasoningEfforts: ['none', 'minimal', 'low', 'medium', 'high'],
     },
+    { name: 'gpt-5.1-chat-latest', multiModal: true },
     {
       name: 'gpt-5.1',
+      multiModal: true,
+      reasoningEfforts: ['none', 'minimal', 'low', 'medium', 'high'],
+    },
+    {
+      name: 'gpt-5.1-2025-11-13',
       multiModal: true,
       reasoningEfforts: ['none', 'minimal', 'low', 'medium', 'high'],
     },
@@ -67,7 +136,17 @@ const modelDefinitions: Record<AIService, ModelInfo[]> = {
       reasoningEfforts: ['minimal', 'low', 'medium', 'high'],
     },
     {
+      name: 'gpt-5-pro-2025-10-06',
+      multiModal: true,
+      reasoningEfforts: ['minimal', 'low', 'medium', 'high'],
+    },
+    {
       name: 'gpt-5',
+      multiModal: true,
+      reasoningEfforts: ['minimal', 'low', 'medium', 'high'],
+    },
+    {
+      name: 'gpt-5-2025-08-07',
       multiModal: true,
       reasoningEfforts: ['minimal', 'low', 'medium', 'high'],
     },
@@ -77,29 +156,121 @@ const modelDefinitions: Record<AIService, ModelInfo[]> = {
       reasoningEfforts: ['minimal', 'low', 'medium', 'high'],
     },
     {
+      name: 'gpt-5-mini-2025-08-07',
+      multiModal: true,
+      reasoningEfforts: ['minimal', 'low', 'medium', 'high'],
+    },
+    {
       name: 'gpt-5-nano',
       multiModal: true,
       reasoningEfforts: ['minimal', 'low', 'medium', 'high'],
     },
     {
-      name: 'gpt-5-codex',
+      name: 'gpt-5-nano-2025-08-07',
       multiModal: true,
       reasoningEfforts: ['minimal', 'low', 'medium', 'high'],
     },
     {
-      name: 'gpt-5-chat-latest',
+      name: 'gpt-5-codex',
+      reasoningEfforts: ['minimal', 'low', 'medium', 'high'],
+    },
+    { name: 'gpt-5-chat-latest', multiModal: true },
+    { name: 'gpt-4.1', multiModal: true },
+    { name: 'gpt-4.1-2025-04-14', multiModal: true },
+    { name: 'gpt-4.1-mini', multiModal: true },
+    { name: 'gpt-4.1-mini-2025-04-14', multiModal: true },
+    { name: 'gpt-4.1-nano', multiModal: true },
+    { name: 'gpt-4.1-nano-2025-04-14', multiModal: true },
+    { name: 'gpt-4o', multiModal: true },
+    { name: 'gpt-4o-2024-05-13', multiModal: true },
+    { name: 'gpt-4o-2024-08-06', multiModal: true },
+    { name: 'gpt-4o-2024-11-20', multiModal: true },
+    { name: 'gpt-4o-mini', multiModal: true },
+    { name: 'gpt-4o-mini-2024-07-18', multiModal: true },
+    { name: 'gpt-3.5-turbo' },
+    { name: 'gpt-3.5-turbo-0125' },
+    { name: 'gpt-3.5-turbo-1106' },
+    {
+      name: 'o4-mini',
       multiModal: true,
       reasoningEfforts: ['minimal', 'low', 'medium', 'high'],
     },
-    { name: 'gpt-4.1', multiModal: true },
-    { name: 'gpt-4.1-mini', multiModal: true, isDefault: true },
-    { name: 'gpt-4.1-nano', multiModal: true },
-    { name: 'gpt-4o', multiModal: true },
-    { name: 'gpt-4o-mini', multiModal: true },
+    {
+      name: 'o4-mini-2025-04-16',
+      multiModal: true,
+      reasoningEfforts: ['minimal', 'low', 'medium', 'high'],
+    },
+    {
+      name: 'o3',
+      multiModal: true,
+      reasoningEfforts: ['minimal', 'low', 'medium', 'high'],
+    },
+    {
+      name: 'o3-2025-04-16',
+      multiModal: true,
+      reasoningEfforts: ['minimal', 'low', 'medium', 'high'],
+    },
+    {
+      name: 'o3-mini',
+      multiModal: true,
+      reasoningEfforts: ['minimal', 'low', 'medium', 'high'],
+    },
+    {
+      name: 'o3-mini-2025-01-31',
+      multiModal: true,
+      reasoningEfforts: ['minimal', 'low', 'medium', 'high'],
+    },
+    {
+      name: 'o1',
+      multiModal: true,
+      reasoningEfforts: ['minimal', 'low', 'medium', 'high'],
+    },
+    {
+      name: 'o1-2024-12-17',
+      multiModal: true,
+      reasoningEfforts: ['minimal', 'low', 'medium', 'high'],
+    },
   ],
   anthropic: [
     {
+      name: 'claude-fable-5',
+      multiModal: true,
+      reasoningEfforts: [],
+      reasoningTokenBudget: true,
+    },
+    {
+      name: 'claude-opus-4-8',
+      multiModal: true,
+      reasoningEfforts: [],
+      reasoningTokenBudget: true,
+    },
+    {
+      name: 'claude-opus-4-7',
+      multiModal: true,
+      reasoningEfforts: [],
+      reasoningTokenBudget: true,
+    },
+    {
+      name: 'claude-opus-4-6',
+      multiModal: true,
+      reasoningEfforts: [],
+      reasoningTokenBudget: true,
+    },
+    {
+      name: 'claude-sonnet-4-6',
+      multiModal: true,
+      isDefault: true,
+      reasoningEfforts: [],
+      reasoningTokenBudget: true,
+    },
+    {
       name: 'claude-opus-4-5',
+      multiModal: true,
+      reasoningEfforts: ['low', 'medium', 'high'],
+      reasoningTokenBudget: true,
+    },
+    {
+      name: 'claude-opus-4-5-20251101',
       multiModal: true,
       reasoningEfforts: ['low', 'medium', 'high'],
       reasoningTokenBudget: true,
@@ -111,7 +282,19 @@ const modelDefinitions: Record<AIService, ModelInfo[]> = {
       reasoningTokenBudget: true,
     },
     {
+      name: 'claude-opus-4-1-20250805',
+      multiModal: true,
+      reasoningEfforts: [],
+      reasoningTokenBudget: true,
+    },
+    {
       name: 'claude-opus-4-0',
+      multiModal: true,
+      reasoningEfforts: [],
+      reasoningTokenBudget: true,
+    },
+    {
+      name: 'claude-opus-4-20250514',
       multiModal: true,
       reasoningEfforts: [],
       reasoningTokenBudget: true,
@@ -119,12 +302,23 @@ const modelDefinitions: Record<AIService, ModelInfo[]> = {
     {
       name: 'claude-sonnet-4-5',
       multiModal: true,
-      isDefault: true,
+      reasoningEfforts: [],
+      reasoningTokenBudget: true,
+    },
+    {
+      name: 'claude-sonnet-4-5-20250929',
+      multiModal: true,
       reasoningEfforts: [],
       reasoningTokenBudget: true,
     },
     {
       name: 'claude-sonnet-4-0',
+      multiModal: true,
+      reasoningEfforts: [],
+      reasoningTokenBudget: true,
+    },
+    {
+      name: 'claude-sonnet-4-20250514',
       multiModal: true,
       reasoningEfforts: [],
       reasoningTokenBudget: true,
@@ -136,18 +330,58 @@ const modelDefinitions: Record<AIService, ModelInfo[]> = {
       reasoningTokenBudget: true,
     },
     {
-      name: 'claude-3-7-sonnet-latest',
+      name: 'claude-haiku-4-5-20251001',
       multiModal: true,
       reasoningEfforts: [],
       reasoningTokenBudget: true,
     },
-    { name: 'claude-3-5-haiku-latest', multiModal: true },
+    { name: 'claude-3-haiku-20240307', multiModal: true },
   ],
   google: [
+    {
+      name: 'gemini-3.5-flash',
+      multiModal: true,
+      reasoningEfforts: ['minimal', 'low', 'medium', 'high'],
+    },
+    {
+      name: 'gemini-3.1-pro-preview',
+      multiModal: true,
+      reasoningEfforts: ['low', 'medium', 'high'],
+    },
+    {
+      name: 'gemini-3.1-pro-preview-customtools',
+      multiModal: true,
+      reasoningEfforts: ['low', 'medium', 'high'],
+    },
+    {
+      name: 'gemini-3.1-flash-image-preview',
+      multiModal: true,
+      reasoningEfforts: ['minimal', 'low', 'medium', 'high'],
+    },
+    {
+      name: 'gemini-3.1-flash-lite-preview',
+      multiModal: true,
+      reasoningEfforts: ['minimal', 'low', 'medium', 'high'],
+    },
+    {
+      name: 'gemini-3.1-flash-tts-preview',
+      multiModal: true,
+      reasoningEfforts: ['minimal', 'low', 'medium', 'high'],
+    },
     {
       name: 'gemini-3-pro-preview',
       multiModal: true,
       reasoningEfforts: ['low', 'high'],
+    },
+    {
+      name: 'gemini-3-pro-image-preview',
+      multiModal: true,
+      reasoningEfforts: ['low', 'high'],
+    },
+    {
+      name: 'gemini-3-flash-preview',
+      multiModal: true,
+      reasoningEfforts: ['minimal', 'low', 'medium', 'high'],
     },
     {
       name: 'gemini-2.5-pro',
@@ -163,29 +397,83 @@ const modelDefinitions: Record<AIService, ModelInfo[]> = {
       reasoningTokenBudget: true,
     },
     {
+      name: 'gemini-2.5-flash-image',
+      multiModal: true,
+      reasoningEfforts: [],
+      reasoningTokenBudget: true,
+    },
+    {
       name: 'gemini-2.5-flash-lite',
       multiModal: true,
       reasoningEfforts: [],
       reasoningTokenBudget: true,
     },
     {
-      name: 'gemini-2.5-flash-lite-preview-06-17',
+      name: 'gemini-2.5-flash-preview-tts',
+      multiModal: true,
+      reasoningEfforts: [],
+      reasoningTokenBudget: true,
+    },
+    {
+      name: 'gemini-2.5-pro-preview-tts',
+      multiModal: true,
+      reasoningEfforts: [],
+      reasoningTokenBudget: true,
+    },
+    {
+      name: 'gemini-2.5-flash-native-audio-latest',
+      multiModal: true,
+      reasoningEfforts: [],
+      reasoningTokenBudget: true,
+    },
+    {
+      name: 'gemini-2.5-flash-native-audio-preview-09-2025',
+      multiModal: true,
+      reasoningEfforts: [],
+      reasoningTokenBudget: true,
+    },
+    {
+      name: 'gemini-2.5-flash-native-audio-preview-12-2025',
+      multiModal: true,
+      reasoningEfforts: [],
+      reasoningTokenBudget: true,
+    },
+    {
+      name: 'gemini-2.5-computer-use-preview-10-2025',
       multiModal: true,
       reasoningEfforts: [],
       reasoningTokenBudget: true,
     },
     { name: 'gemini-2.0-flash', multiModal: true },
-    { name: 'gemini-1.5-pro', multiModal: true },
-    { name: 'gemini-1.5-pro-latest', multiModal: true },
-    { name: 'gemini-1.5-flash', multiModal: true },
-    { name: 'gemini-1.5-flash-latest', multiModal: true },
-    { name: 'gemini-1.5-flash-8b', multiModal: true },
-    { name: 'gemini-1.5-flash-8b-latest', multiModal: true },
+    { name: 'gemini-2.0-flash-001', multiModal: true },
+    { name: 'gemini-2.0-flash-lite', multiModal: true },
+    { name: 'gemini-2.0-flash-lite-001', multiModal: true },
+    { name: 'gemini-pro-latest', multiModal: true },
+    { name: 'gemini-flash-latest', multiModal: true },
+    { name: 'gemini-flash-lite-latest', multiModal: true },
+    { name: 'deep-research-pro-preview-12-2025', multiModal: true },
+    { name: 'nano-banana-pro-preview', multiModal: true },
+    { name: 'aqa' },
+    { name: 'gemini-robotics-er-1.5-preview', multiModal: true },
+    { name: 'gemma-3-1b-it' },
+    { name: 'gemma-3-4b-it' },
+    { name: 'gemma-3n-e4b-it' },
+    { name: 'gemma-3n-e2b-it' },
+    { name: 'gemma-3-12b-it' },
+    { name: 'gemma-3-27b-it' },
   ],
   azure: [],
   xai: [
+    {
+      name: 'grok-4-1-fast-reasoning',
+      reasoningEfforts: ['low', 'high'],
+    },
+    { name: 'grok-4-1-fast-non-reasoning' },
     { name: 'grok-4-fast-non-reasoning' },
     { name: 'grok-4-fast-reasoning', reasoningEfforts: ['low', 'high'] },
+    { name: 'grok-4.20-0309-non-reasoning' },
+    { name: 'grok-4.20-0309-reasoning', reasoningEfforts: ['low', 'high'] },
+    { name: 'grok-4.20-multi-agent-0309', reasoningEfforts: ['low', 'high'] },
     { name: 'grok-code-fast-1' },
     {
       name: 'grok-4',
@@ -193,19 +481,19 @@ const modelDefinitions: Record<AIService, ModelInfo[]> = {
       isDefault: true,
       reasoningEfforts: ['low', 'high'],
     },
+    {
+      name: 'grok-4-0709',
+      multiModal: true,
+      reasoningEfforts: ['low', 'high'],
+    },
+    {
+      name: 'grok-4-latest',
+      multiModal: true,
+      reasoningEfforts: ['low', 'high'],
+    },
     { name: 'grok-3', multiModal: true, reasoningEfforts: ['low', 'high'] },
     {
       name: 'grok-3-latest',
-      multiModal: true,
-      reasoningEfforts: ['low', 'high'],
-    },
-    {
-      name: 'grok-3-fast',
-      multiModal: true,
-      reasoningEfforts: ['low', 'high'],
-    },
-    {
-      name: 'grok-3-fast-latest',
       multiModal: true,
       reasoningEfforts: ['low', 'high'],
     },
@@ -219,49 +507,26 @@ const modelDefinitions: Record<AIService, ModelInfo[]> = {
       multiModal: true,
       reasoningEfforts: ['low', 'high'],
     },
-    {
-      name: 'grok-3-mini-fast',
-      multiModal: true,
-      reasoningEfforts: ['low', 'high'],
-    },
-    {
-      name: 'grok-3-mini-fast-latest',
-      multiModal: true,
-      reasoningEfforts: ['low', 'high'],
-    },
-    { name: 'grok-2', multiModal: true },
-    { name: 'grok-2-latest', multiModal: true },
-    { name: 'grok-2-1212', multiModal: true },
-    { name: 'grok-2-vision', multiModal: true },
-    { name: 'grok-2-vision-latest', multiModal: true },
-    { name: 'grok-2-vision-1212', multiModal: true },
-    { name: 'grok-beta', multiModal: true },
-    { name: 'grok-vision-beta', multiModal: true },
   ],
   groq: [
-    { name: 'gemma2-9b-it' },
     { name: 'llama-3.1-8b-instant' },
     { name: 'llama-3.3-70b-versatile', isDefault: true },
-    { name: 'meta-llama/llama-guard-4-12b' },
-    { name: 'deepseek-r1-distill-llama-70b' },
-    { name: 'meta-llama/llama-4-maverick-17b-128e-instruct' },
-    { name: 'meta-llama/llama-4-scout-17b-16e-instruct', multiModal: true },
-    { name: 'meta-llama/llama-prompt-guard-2-22m' },
-    { name: 'meta-llama/llama-prompt-guard-2-86m' },
-    { name: 'moonshotai/kimi-k2-instruct-0905' },
-    { name: 'qwen/qwen3-32b', reasoningEfforts: [] },
-    { name: 'llama-guard-3-8b' },
-    { name: 'llama3-70b-8192' },
-    { name: 'llama3-8b-8192' },
-    { name: 'mixtral-8x7b-32768' },
-    { name: 'qwen-qwq-32b' },
-    { name: 'qwen-2.5-32b' },
-    { name: 'deepseek-r1-distill-qwen-32b' },
-    { name: 'openai/gpt-oss-20b', reasoningEfforts: ['low', 'medium', 'high'] },
     {
       name: 'openai/gpt-oss-120b',
       reasoningEfforts: ['low', 'medium', 'high'],
     },
+    { name: 'openai/gpt-oss-20b', reasoningEfforts: ['low', 'medium', 'high'] },
+    { name: 'groq/compound' },
+    { name: 'groq/compound-mini' },
+    { name: 'meta-llama/llama-4-scout-17b-16e-instruct', multiModal: true },
+    { name: 'meta-llama/llama-prompt-guard-2-22m' },
+    { name: 'meta-llama/llama-prompt-guard-2-86m' },
+    {
+      name: 'openai/gpt-oss-safeguard-20b',
+      reasoningEfforts: ['low', 'medium', 'high'],
+    },
+    { name: 'qwen/qwen3-32b', reasoningEfforts: [] },
+    { name: 'qwen/qwen3.6-27b', reasoningEfforts: [] },
   ],
   cohere: [
     { name: 'command-a-03-2025', isDefault: true },
@@ -270,6 +535,7 @@ const modelDefinitions: Record<AIService, ModelInfo[]> = {
       reasoningEfforts: [],
       reasoningTokenBudget: true,
     },
+    { name: 'command-a-vision-07-2025', multiModal: true },
     { name: 'command-r7b-12-2024' },
     { name: 'command-r-plus-04-2024' },
     { name: 'command-r-plus' },
@@ -282,19 +548,40 @@ const modelDefinitions: Record<AIService, ModelInfo[]> = {
     { name: 'command-light-nightly' },
   ],
   mistralai: [
-    { name: 'mistral-large-latest', isDefault: true },
-    { name: 'mistral-medium-latest' },
-    { name: 'mistral-medium-2505' },
-    { name: 'mistral-small-latest' },
-    { name: 'pixtral-large-latest', multiModal: true },
-    { name: 'pixtral-12b-2409', multiModal: true },
-    { name: 'magistral-small-2506' },
-    { name: 'magistral-medium-2506' },
     { name: 'ministral-3b-latest' },
     { name: 'ministral-8b-latest' },
-    { name: 'open-mistral-7b' },
-    { name: 'open-mixtral-8x7b' },
-    { name: 'open-mixtral-8x22b' },
+    { name: 'ministral-14b-latest' },
+    { name: 'mistral-large-latest', isDefault: true },
+    { name: 'mistral-medium-latest' },
+    { name: 'mistral-medium-3' },
+    { name: 'mistral-large-2512' },
+    { name: 'mistral-medium-2508' },
+    { name: 'mistral-medium-2505' },
+    { name: 'mistral-small-2506' },
+    { name: 'pixtral-large-latest', multiModal: true },
+    { name: 'mistral-medium-3.5' },
+    { name: 'mistral-small-latest' },
+    { name: 'mistral-small-2603' },
+    {
+      name: 'magistral-medium-latest',
+      reasoningEfforts: [],
+      reasoningTokenBudget: true,
+    },
+    {
+      name: 'magistral-small-latest',
+      reasoningEfforts: [],
+      reasoningTokenBudget: true,
+    },
+    {
+      name: 'magistral-medium-2509',
+      reasoningEfforts: [],
+      reasoningTokenBudget: true,
+    },
+    {
+      name: 'magistral-small-2509',
+      reasoningEfforts: [],
+      reasoningTokenBudget: true,
+    },
   ],
   perplexity: [
     { name: 'sonar-deep-research' },
@@ -304,16 +591,14 @@ const modelDefinitions: Record<AIService, ModelInfo[]> = {
     { name: 'sonar' },
   ],
   fireworks: [
-    { name: 'accounts/fireworks/models/firefunction-v1' },
-    { name: 'accounts/fireworks/models/deepseek-r1' },
     { name: 'accounts/fireworks/models/deepseek-v3' },
+    { name: 'accounts/fireworks/models/llama-v3p3-70b-instruct' },
+    { name: 'accounts/fireworks/models/llama-v3p2-3b-instruct' },
     { name: 'accounts/fireworks/models/llama-v3p1-405b-instruct' },
     { name: 'accounts/fireworks/models/llama-v3p1-8b-instruct' },
-    { name: 'accounts/fireworks/models/llama-v3p2-3b-instruct' },
-    { name: 'accounts/fireworks/models/llama-v3p3-70b-instruct' },
     { name: 'accounts/fireworks/models/mixtral-8x7b-instruct' },
-    { name: 'accounts/fireworks/models/mixtral-8x7b-instruct-hf' },
     { name: 'accounts/fireworks/models/mixtral-8x22b-instruct' },
+    { name: 'accounts/fireworks/models/mixtral-8x7b-instruct-hf' },
     { name: 'accounts/fireworks/models/qwen2p5-coder-32b-instruct' },
     { name: 'accounts/fireworks/models/qwen2p5-72b-instruct' },
     { name: 'accounts/fireworks/models/qwen-qwq-32b-preview' },
@@ -328,6 +613,17 @@ const modelDefinitions: Record<AIService, ModelInfo[]> = {
     { name: 'accounts/fireworks/models/qwq-32b' },
     { name: 'accounts/fireworks/models/yi-large' },
     { name: 'accounts/fireworks/models/kimi-k2-instruct' },
+    {
+      name: 'accounts/fireworks/models/kimi-k2-thinking',
+      reasoningEfforts: [],
+      reasoningTokenBudget: true,
+    },
+    {
+      name: 'accounts/fireworks/models/kimi-k2p5',
+      reasoningEfforts: [],
+      reasoningTokenBudget: true,
+    },
+    { name: 'accounts/fireworks/models/minimax-m2' },
   ],
   deepseek: [{ name: 'deepseek-chat' }, { name: 'deepseek-reasoner' }],
   openrouter: [],
@@ -360,7 +656,7 @@ export const defaultModels: Record<
       models.find((model) => model.isDefault)?.name || '',
     ])
   ),
-  openaiAudio: 'tts-1',
+  openaiAudio: 'gpt-4o-mini-audio-preview',
   openaiRealtime: 'gpt-realtime',
 } as Record<AIService | 'openaiAudio' | 'openaiRealtime', string>
 
@@ -424,9 +720,11 @@ export const openAIRealtimeModels = [
  * OpenAIのオーディオAPIモードで使用するモデル一覧
  */
 export const openAIAudioModels = [
-  'tts-1',
-  'tts-1-hd',
-  'gpt-4o-mini-tts',
+  'gpt-4o-audio-preview',
+  'gpt-4o-audio-preview-2024-12-17',
+  'gpt-4o-audio-preview-2025-06-03',
+  'gpt-4o-mini-audio-preview',
+  'gpt-4o-mini-audio-preview-2024-12-17',
 ] as const
 
 /**
@@ -451,7 +749,10 @@ export function getOpenAIAudioModels(): string[] {
 export const openAIWhisperModels = [
   'whisper-1',
   'gpt-4o-transcribe',
+  'gpt-4o-transcribe-diarize',
   'gpt-4o-mini-transcribe',
+  'gpt-4o-mini-transcribe-2025-03-20',
+  'gpt-4o-mini-transcribe-2025-12-15',
 ] as const
 
 /**
@@ -464,7 +765,15 @@ export function getOpenAIWhisperModels(): string[] {
 /**
  * OpenAIのTTS(音声合成)用モデル一覧
  */
-export const openAITTSModels = ['tts-1', 'tts-1-hd', 'gpt-4o-mini-tts'] as const
+export const openAITTSModels = [
+  'tts-1',
+  'tts-1-1106',
+  'tts-1-hd',
+  'tts-1-hd-1106',
+  'gpt-4o-mini-tts',
+  'gpt-4o-mini-tts-2025-03-20',
+  'gpt-4o-mini-tts-2025-12-15',
+] as const
 
 /**
  * OpenAIのTTSモデル一覧を取得する
@@ -517,11 +826,10 @@ export function isMultiModalModelWithToggle(
 
 /**
  * マルチモーダル機能が実際に使用可能かどうかを包括的に判定する
- * モデル対応状況、設定、利用モードの全てを考慮する
+ * モデル対応状況、設定の全てを考慮する
  * @param service AIサービス名
  * @param model モデル名
  * @param enableMultiModal マルチモーダルトグルの状態
- * @param multiModalMode マルチモーダル利用モード
  * @param customModel カスタムモデルかどうか
  * @returns マルチモーダル機能が使用可能な場合はtrue
  */
@@ -529,15 +837,8 @@ export function isMultiModalAvailable(
   service: AIService,
   model: string,
   enableMultiModal: boolean,
-  multiModalMode: 'ai-decide' | 'always' | 'never',
   customModel?: boolean
 ): boolean {
-  // 利用モードが'never'の場合は常にfalse
-  if (multiModalMode === 'never') {
-    return false
-  }
-
-  // モデル・設定による基本的な判定
   return isMultiModalModelWithToggle(
     service,
     model,
@@ -547,12 +848,22 @@ export function isMultiModalAvailable(
 }
 
 export const googleSearchGroundingModels = [
-  'gemini-1.5-flash-latest',
-  'gemini-1.5-pro-latest',
-  'gemini-1.5-flash-8b-latest',
-  'gemini-1.5-flash',
-  'gemini-1.5-pro',
-  'gemini-1.5-flash-8b',
+  'gemini-3.5-flash',
+  'gemini-3.1-pro-preview',
+  'gemini-3.1-pro-preview-customtools',
+  'gemini-3.1-flash-lite-preview',
+  'gemini-3-pro-preview',
+  'gemini-3-flash-preview',
+  'gemini-2.5-pro',
+  'gemini-2.5-flash',
+  'gemini-2.5-flash-lite',
+  'gemini-2.0-flash',
+  'gemini-2.0-flash-001',
+  'gemini-2.0-flash-lite',
+  'gemini-2.0-flash-lite-001',
+  'gemini-pro-latest',
+  'gemini-flash-latest',
+  'gemini-flash-lite-latest',
 ] as const
 
 /**
@@ -588,6 +899,7 @@ const serviceReasoningDefaults: Partial<
   xai: { efforts: ['low', 'high'], tokenBudget: false },
   groq: { efforts: ['low', 'medium', 'high'], tokenBudget: false },
   cohere: { efforts: [], tokenBudget: true },
+  ollama: { efforts: ['none', 'low', 'medium', 'high'], tokenBudget: false },
 }
 
 /**

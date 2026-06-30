@@ -31,11 +31,13 @@ const CollapsibleSection = ({
   description,
   children,
   defaultOpen = false,
+  testId,
 }: {
   title: string
   description?: string
   children: React.ReactNode
   defaultOpen?: boolean
+  testId?: string
 }) => {
   const [isOpen, setIsOpen] = useState(defaultOpen)
 
@@ -44,6 +46,7 @@ const CollapsibleSection = ({
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
+        data-testid={testId}
         className="w-full px-4 py-3 bg-gray-50 flex items-center justify-between text-left hover:bg-gray-100 transition-colors"
       >
         <div>
@@ -112,8 +115,13 @@ const PresenceSettings = () => {
   const audioMode = settingsStore((s) => s.audioMode)
   const externalLinkageMode = settingsStore((s) => s.externalLinkageMode)
   const slideMode = settingsStore((s) => s.slideMode)
+  const gameCommentaryEnabled = settingsStore((s) => s.gameCommentaryEnabled)
   const isPresenceDisabled =
-    realtimeAPIMode || audioMode || externalLinkageMode || slideMode
+    realtimeAPIMode ||
+    audioMode ||
+    externalLinkageMode ||
+    slideMode ||
+    gameCommentaryEnabled
 
   // カメラデバイス一覧を取得
   const loadCameraDevices = useCallback(async () => {
@@ -513,6 +521,7 @@ const PresenceSettings = () => {
         <CollapsibleSection
           title={t('PresenceTimingSettings')}
           description={t('PresenceTimingSettingsInfo')}
+          testId="presence-timing-settings-button"
         >
           {/* 離脱判定時間 */}
           <div className="mb-6">
