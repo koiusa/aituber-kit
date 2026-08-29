@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import type { NextApiRequest, NextApiResponse } from 'next'
 import {
   VercelAIService,
@@ -7,15 +8,16 @@ import {
 import { createAIRegistry, getLanguageModel } from '@/lib/api-services/vercelAi'
 import { mastra } from '@/lib/mastra'
 import { RequestContext } from '@mastra/core/request-context'
+import { withAccessPolicy } from '@/lib/accessPolicy/withAccessPolicy'
+import type { PolicyGate } from '@/lib/accessPolicy/withAccessPolicy'
+import { routePolicies } from '@/lib/accessPolicy/routePolicies'
+import { guardLocalLlmUrl } from '@/lib/accessPolicy/guardLocalLlmUrl'
 
-export default async function handler(
+async function handler(
   req: NextApiRequest,
-  res: NextApiResponse
+  res: NextApiResponse,
+  gate: PolicyGate
 ) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method Not Allowed' })
-  }
-
   const {
     aiService,
     model,
@@ -41,6 +43,7 @@ export default async function handler(
 
   // APIキーの取得と検証
   let aiApiKey = apiKey
+  let usesServerSecret = false
   if (isVercelCloudAIService(aiService)) {
     if (!aiApiKey) {
       const servicePrefix = aiService.toUpperCase()
@@ -48,6 +51,7 @@ export default async function handler(
         process.env[`${servicePrefix}_KEY`] ||
         process.env[`${servicePrefix}_API_KEY`] ||
         ''
+      usesServerSecret = Boolean(aiApiKey)
     }
     if (!aiApiKey) {
       return res
@@ -56,27 +60,41 @@ export default async function handler(
     }
   }
 
+  if (!gate.guardServerSecret(usesServerSecret)) {
+    return
+  }
+
   // ローカルLLMのURL検証
-  if (
-    isVercelLocalAIService(aiService) &&
-    aiService !== 'custom-api' &&
-    !localLlmUrl
-  ) {
-    return res
-      .status(400)
-      .json({ error: 'Empty Local LLM URL', errorCode: 'EmptyLocalLLMURL' })
+  if (isVercelLocalAIService(aiService) && aiService !== 'custom-api') {
+    if (!localLlmUrl) {
+      return res
+        .status(400)
+        .json({ error: 'Empty Local LLM URL', errorCode: 'EmptyLocalLLMURL' })
+    }
+    if (!guardLocalLlmUrl(res, gate, localLlmUrl)) {
+      return
+    }
   }
 
   // Azureのエンドポイントとデプロイメント名の処理
-  let modifiedAzureEndpoint = (
-    azureEndpoint ||
-    process.env.AZURE_ENDPOINT ||
+  const azureEndpointValue =
+    aiService === 'azure'
+      ? azureEndpoint || process.env.AZURE_ENDPOINT || ''
+      : ''
+  const usesServerAzureEndpoint =
+    aiService === 'azure' &&
+    !azureEndpoint &&
+    Boolean(process.env.AZURE_ENDPOINT)
+  if (!gate.guardServerSecret(usesServerAzureEndpoint)) {
+    return
+  }
+
+  let modifiedAzureEndpoint = azureEndpointValue.replace(
+    /^https:\/\/|\.openai\.azure\.com.*$/g,
     ''
-  ).replace(/^https:\/\/|\.openai\.azure\.com.*$/g, '')
+  )
   const modifiedAzureDeployment =
-    (azureEndpoint || process.env.AZURE_ENDPOINT || '').match(
-      /\/deployments\/([^\/]+)/
-    )?.[1] || ''
+    azureEndpointValue.match(/\/deployments\/([^\/]+)/)?.[1] || ''
   const modifiedModel = aiService === 'azure' ? modifiedAzureDeployment : model
 
   if (aiService === 'azure' && !modifiedModel) {
@@ -137,7 +155,7 @@ export default async function handler(
     if (result.status === 'success') {
       return res.status(200).json(result.result)
     } else {
-      console.error('Workflow failed:', result)
+      logger.error('Workflow failed:', result)
       return res.status(500).json({
         error:
           result.status === 'failed'
@@ -148,7 +166,12 @@ export default async function handler(
   } catch (error: unknown) {
     const errorMessage =
       error instanceof Error ? error.message : 'Unknown error'
-    console.error('Error in youtube continuation API:', errorMessage)
+    logger.error('Error in youtube continuation API:', errorMessage)
     return res.status(500).json({ error: errorMessage })
   }
 }
+
+export default withAccessPolicy(
+  routePolicies['/api/youtube/continuation'],
+  handler
+)

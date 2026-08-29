@@ -10,6 +10,7 @@ import {
   getOpenAIAudioModels,
   getOpenAIWhisperModels,
   getOpenAITTSModels,
+  getReasoningEfforts,
   isMultiModalModel,
   isMultiModalModelWithToggle,
   isMultiModalAvailable,
@@ -24,6 +25,8 @@ import {
 import { AIService } from '@/features/constants/settings'
 
 describe('aiModels', () => {
+  const openAI56Models = ['gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna']
+
   const allServices: AIService[] = [
     'openai',
     'anthropic',
@@ -75,6 +78,13 @@ describe('aiModels', () => {
         expect(getModels(service)).toEqual(aiModels[service])
       })
     })
+
+    it('should include newly released OpenAI and xAI models', () => {
+      expect(getModels('openai')).toEqual(
+        expect.arrayContaining(openAI56Models)
+      )
+      expect(getModels('xai')).toContain('grok-4.5')
+    })
   })
 
   describe('getDefaultModel', () => {
@@ -116,14 +126,12 @@ describe('aiModels', () => {
   })
 
   describe('getSpecificDefaultModel', () => {
-    it('should return gpt-4o-mini-audio-preview for openaiAudio', () => {
-      expect(getSpecificDefaultModel('openaiAudio')).toBe(
-        'gpt-4o-mini-audio-preview'
-      )
+    it('should return gpt-audio-mini for openaiAudio', () => {
+      expect(getSpecificDefaultModel('openaiAudio')).toBe('gpt-audio-mini')
     })
 
-    it('should return gpt-realtime for openaiRealtime', () => {
-      expect(getSpecificDefaultModel('openaiRealtime')).toBe('gpt-realtime')
+    it('should return gpt-realtime-2.1 for openaiRealtime', () => {
+      expect(getSpecificDefaultModel('openaiRealtime')).toBe('gpt-realtime-2.1')
     })
 
     it('should also work for regular AIService', () => {
@@ -138,6 +146,7 @@ describe('aiModels', () => {
       expect(models).toContain('gpt-5.4')
       expect(models).toContain('gpt-4o')
       expect(models).toContain('gpt-4.1')
+      expect(models).toEqual(expect.arrayContaining(openAI56Models))
     })
 
     it('should return all models for anthropic (all are multimodal)', () => {
@@ -163,6 +172,7 @@ describe('aiModels', () => {
       expect(models).not.toContain('grok-4-fast-reasoning')
       expect(models).not.toContain('grok-code-fast-1')
       expect(models).toContain('grok-4')
+      expect(models).toContain('grok-4.5')
     })
 
     it('should return subset for groq (most are not multimodal)', () => {
@@ -297,27 +307,52 @@ describe('aiModels', () => {
         )
       ).toBe(true)
     })
+
+    it('should treat latest OpenAI and xAI models as reasoning models', () => {
+      for (const model of openAI56Models) {
+        expect(isReasoningModel('openai', model)).toBe(true)
+        expect(getReasoningEfforts('openai', model)).toEqual([
+          'none',
+          'low',
+          'medium',
+          'high',
+          'xhigh',
+        ])
+      }
+
+      expect(isReasoningModel('xai', 'grok-4.5')).toBe(true)
+      expect(getReasoningEfforts('xai', 'grok-4.5')).toEqual([
+        'low',
+        'medium',
+        'high',
+      ])
+    })
   })
 
   describe('OpenAI model list functions', () => {
     it('getOpenAIRealtimeModels should return correct models', () => {
       const models = getOpenAIRealtimeModels()
       expect(models).toEqual([...openAIRealtimeModels])
-      expect(models).toContain('gpt-realtime')
-      expect(models).toContain('gpt-realtime-mini')
+      expect(models).toContain('gpt-realtime-2.1')
+      expect(models).toContain('gpt-realtime-2.1-mini')
+      expect(models).not.toContain('gpt-realtime')
+      expect(models).not.toContain('gpt-realtime-mini')
     })
 
     it('getOpenAIAudioModels should return correct models', () => {
       const models = getOpenAIAudioModels()
       expect(models).toEqual([...openAIAudioModels])
-      expect(models).toContain('gpt-4o-audio-preview')
-      expect(models).toContain('gpt-4o-mini-audio-preview')
+      expect(models).toContain('gpt-audio')
+      expect(models).toContain('gpt-audio-mini')
     })
 
     it('getOpenAIWhisperModels should return correct models', () => {
       const models = getOpenAIWhisperModels()
       expect(models).toEqual([...openAIWhisperModels])
+      expect(models[0]).toBe('gpt-transcribe')
+      expect(models).toContain('gpt-transcribe')
       expect(models).toContain('whisper-1')
+      expect(models).not.toContain('gpt-4o-mini-transcribe-2025-03-20')
     })
 
     it('getOpenAITTSModels should return correct models', () => {

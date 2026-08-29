@@ -1,16 +1,29 @@
+import { logger } from '@/lib/logger'
 import { Talk } from './messages'
 import homeStore from '@/features/stores/home'
-import settingsStore from '@/features/stores/settings'
-import { Live2DHandler } from './live2dHandler'
-import { PNGTuberHandler } from '@/features/pngTuber/pngTuberHandler'
+import { getCharacterRenderer } from './characterRenderer'
 
-type SpeakTask = {
+type SpeakTaskBase = {
   sessionId: string
-  audioBuffer: ArrayBuffer
   talk: Talk
-  isNeedDecode: boolean
+  displayText?: string
+  onPlaybackStart?: () => void
   onComplete?: () => void
 }
+
+type SpeakTask = SpeakTaskBase &
+  (
+    | {
+        kind?: 'buffer'
+        audioBuffer: ArrayBuffer
+        isNeedDecode: boolean
+      }
+    | {
+        kind: 'pcm16-stream'
+        audioStream: ReadableStream<Uint8Array>
+        sampleRate: number
+      }
+  )
 
 export class SpeakQueue {
   private static readonly QUEUE_CHECK_DELAY = 1500
@@ -21,9 +34,18 @@ export class SpeakQueue {
   private static _instance: SpeakQueue | null = null
   private stopped = false
   private static stopTokenCounter = 0
+  private static speechTaskCounter = 0
+  // 直近の停止の対象範囲（'all' = 全体停止 / それ以外 = 対象セッションID）。
+  // speechDispatcher が「他セッション向けの停止に巻き添えされない」判定に使う
+  // 読み取り専用の付帯情報で、キュー自体の制御には使用しない。
+  private static stopScope: 'all' | string = 'all'
 
   public static get currentStopToken() {
     return SpeakQueue.stopTokenCounter
+  }
+
+  public static get currentStopScope(): 'all' | string {
+    return SpeakQueue.stopScope
   }
 
   // 発話完了時のコールバックを登録
@@ -48,18 +70,7 @@ export class SpeakQueue {
   }
 
   private static stopCurrentModelSpeaking() {
-    const hs = homeStore.getState()
-    const ss = settingsStore.getState()
-    if (ss.modelType === 'live2d') {
-      Live2DHandler.stopSpeaking()
-    } else if (ss.modelType === 'pngtuber') {
-      PNGTuberHandler.stopSpeaking()
-    } else {
-      hs.viewer.model?.stopSpeaking()
-      if (hs.viewer.model?.poseManager?.isActive) {
-        hs.viewer.model?.poseManager?.resetToIdle(hs.viewer.model)
-      }
-    }
+    getCharacterRenderer()?.stopSpeaking()
   }
 
   /**
@@ -86,9 +97,10 @@ export class SpeakQueue {
     // 発話キューの処理状態をリセットして次回の再生を可能にする
     instance.isProcessing = false
     SpeakQueue.stopTokenCounter++
+    SpeakQueue.stopScope = 'all'
     instance.clearQueue()
     SpeakQueue.stopCurrentModelSpeaking()
-    homeStore.setState({ isSpeaking: false })
+    homeStore.setState({ isSpeaking: false, activeSpeech: null })
   }
 
   /**
@@ -99,9 +111,15 @@ export class SpeakQueue {
     if (!sessionId) return
 
     const instance = SpeakQueue.getInstance()
-    instance.queue = instance.queue.filter(
-      (task) => task.sessionId !== sessionId
-    )
+    const remainingTasks: SpeakTask[] = []
+    instance.queue.forEach((task) => {
+      if (task.sessionId === sessionId) {
+        instance.disposeTask(task)
+      } else {
+        remainingTasks.push(task)
+      }
+    })
+    instance.queue = remainingTasks
 
     if (instance.currentSessionId !== sessionId) {
       return
@@ -110,10 +128,62 @@ export class SpeakQueue {
     instance.stopped = true
     instance.isProcessing = false
     SpeakQueue.stopTokenCounter++
+    SpeakQueue.stopScope = sessionId
     instance.clearQueue()
 
     SpeakQueue.stopCurrentModelSpeaking()
-    homeStore.setState({ isSpeaking: false })
+    homeStore.setState({ isSpeaking: false, activeSpeech: null })
+  }
+
+  /**
+   * キューが完全に空転している場合のみ、発話完了コールバックの実行と
+   * 表情のリセットを行います。停止により発話が打ち切られた応答の
+   * ストリーム終端処理（speechDispatcher が disabled になった場合）から
+   * 呼び出されます。新しい応答が既に発話中（isSpeaking）の場合は何もしません。
+   */
+  public static async finalizeIfIdle(): Promise<void> {
+    const instance = SpeakQueue.getInstance()
+    if (
+      instance.queue.length > 0 ||
+      instance.isProcessing ||
+      homeStore.getState().isSpeaking
+    ) {
+      return
+    }
+
+    const finalizingSessionId = instance.currentSessionId
+    const canResetToIdle = () =>
+      instance.queue.length === 0 &&
+      !homeStore.getState().isSpeaking &&
+      instance.currentSessionId === finalizingSessionId
+    let shouldResumeQueue = false
+    instance.isProcessing = true
+    try {
+      instance.stopped = false
+      SpeakQueue.speakCompletionCallbacks.forEach((callback) => {
+        try {
+          callback()
+        } catch (error) {
+          logger.error(
+            '発話完了コールバックの実行中にエラーが発生しました:',
+            error
+          )
+        }
+      })
+
+      if (!canResetToIdle()) {
+        shouldResumeQueue =
+          instance.queue.length > 0 && homeStore.getState().isSpeaking
+      } else {
+        await getCharacterRenderer()?.resetToIdle()
+      }
+    } finally {
+      instance.isProcessing = false
+    }
+
+    if (shouldResumeQueue) {
+      await instance.processQueue()
+    }
   }
 
   async addTask(task: SpeakTask) {
@@ -138,20 +208,19 @@ export class SpeakQueue {
 
     this.isProcessing = true
     const hs = homeStore.getState()
-    const ss = settingsStore.getState()
 
     // isSpeaking はループ内部で最新値を参照するため、ここでは条件に含めない
     while (this.queue.length > 0) {
       // StopAll() によりトークンが変化していたら直ちに処理を中断
       if (startToken !== SpeakQueue.currentStopToken) {
-        console.log('Stop token changed. Abort current queue processing.')
+        logger.log('Stop token changed. Abort current queue processing.')
         break
       }
 
       const currentState = homeStore.getState()
       if (!currentState.isSpeaking) {
         this.clearQueue()
-        homeStore.setState({ isSpeaking: false })
+        homeStore.setState({ isSpeaking: false, activeSpeech: null })
         break
       }
 
@@ -159,25 +228,61 @@ export class SpeakQueue {
       if (task) {
         if (task.sessionId !== this.currentSessionId) {
           // 旧セッションのタスクは破棄
+          this.disposeTask(task, true)
           continue
         }
         try {
-          const { audioBuffer, talk, isNeedDecode, onComplete } = task
-          if (ss.modelType === 'live2d') {
-            await Live2DHandler.speak(audioBuffer, talk, isNeedDecode)
-          } else if (ss.modelType === 'pngtuber') {
-            await PNGTuberHandler.speak(audioBuffer, talk, isNeedDecode)
-          } else {
-            await hs.viewer.model?.speak(audioBuffer, talk, isNeedDecode)
+          const renderer = getCharacterRenderer()
+          const activeSpeech = {
+            id: `speech-${Date.now()}-${++SpeakQueue.speechTaskCounter}`,
+            text: task.displayText ?? task.talk.message,
           }
-          onComplete?.()
+          const observer = {
+            onPlaybackStart: () => {
+              homeStore.setState({ activeSpeech })
+              task.onPlaybackStart?.()
+            },
+          }
+          try {
+            if (task.kind === 'pcm16-stream') {
+              if (!renderer?.speakPcm16Stream) {
+                throw new Error(
+                  'Current character renderer does not support PCM16 streaming'
+                )
+              }
+              await renderer.speakPcm16Stream(
+                task.audioStream,
+                task.talk,
+                task.sampleRate,
+                observer
+              )
+            } else {
+              await renderer?.speak(
+                task.audioBuffer,
+                task.talk,
+                task.isNeedDecode,
+                observer
+              )
+            }
+          } finally {
+            if (homeStore.getState().activeSpeech?.id === activeSpeech.id) {
+              homeStore.setState({ activeSpeech: null })
+            }
+          }
         } catch (error) {
-          console.error(
+          await this.disposeTask(task, false, error)
+          logger.error(
             'An error occurred while processing the speech synthesis task:',
             error
           )
           if (error instanceof Error) {
-            console.error('Error details:', error.message)
+            logger.error('Error details:', error.message)
+          }
+        } finally {
+          try {
+            task.onComplete?.()
+          } catch (error) {
+            logger.error('Speech synthesis completion callback failed:', error)
           }
         }
       }
@@ -204,18 +309,7 @@ export class SpeakQueue {
     )
 
     if (this.shouldResetToNeutral(initialLength)) {
-      const hs = homeStore.getState()
-      const ss = settingsStore.getState()
-      if (ss.modelType === 'live2d') {
-        await Live2DHandler.resetToIdle()
-      } else if (ss.modelType === 'pngtuber') {
-        await PNGTuberHandler.resetToIdle()
-      } else {
-        await hs.viewer.model?.playEmotion('neutral')
-        if (hs.viewer.model?.poseManager?.isActive) {
-          hs.viewer.model?.poseManager?.resetToIdle(hs.viewer.model)
-        }
-      }
+      await getCharacterRenderer()?.resetToIdle()
     }
   }
 
@@ -225,9 +319,9 @@ export class SpeakQueue {
 
     // 発話完了時にコールバックを呼び出す
     if (isComplete) {
-      console.log('🎤 発話が完了しました。登録されたコールバックを実行します。')
+      logger.log('🎤 発話が完了しました。登録されたコールバックを実行します。')
       // 発話完了時に isSpeaking を必ず false に設定
-      homeStore.setState({ isSpeaking: false })
+      homeStore.setState({ isSpeaking: false, activeSpeech: null })
       // 停止フラグもリセットして次回の動作に備える
       this.stopped = false
       // すべての発話完了コールバックを呼び出す
@@ -235,7 +329,7 @@ export class SpeakQueue {
         try {
           callback()
         } catch (error) {
-          console.error(
+          logger.error(
             '発話完了コールバックの実行中にエラーが発生しました:',
             error
           )
@@ -247,10 +341,33 @@ export class SpeakQueue {
   }
 
   clearQueue(shouldCallOnComplete = false) {
-    if (shouldCallOnComplete) {
-      this.queue.forEach((task) => task.onComplete?.())
-    }
+    this.queue.forEach((task) => this.disposeTask(task, shouldCallOnComplete))
     this.queue = []
+  }
+
+  private disposeTask(
+    task: SpeakTask,
+    shouldCallOnComplete = false,
+    reason: unknown = 'speech task discarded'
+  ) {
+    const complete = () => {
+      if (!shouldCallOnComplete) return
+      try {
+        task.onComplete?.()
+      } catch (error) {
+        logger.error('Speech task disposal callback failed:', error)
+      }
+    }
+
+    if (task.kind === 'pcm16-stream') {
+      void task.audioStream
+        .cancel(reason)
+        .catch(() => {})
+        .finally(complete)
+      return
+    }
+
+    complete()
   }
 
   private resetStoppedState() {

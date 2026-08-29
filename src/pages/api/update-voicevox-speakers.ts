@@ -1,60 +1,26 @@
+import { logger } from '@/lib/logger'
 import type { NextApiRequest, NextApiResponse } from 'next'
 import fs from 'fs/promises'
 import path from 'path'
-import {
-  isRestrictedMode,
-  createRestrictedModeErrorResponse,
-} from '@/utils/restrictedMode'
-
-interface Style {
-  name: string
-  id: number
-  type: string
-}
-
-interface Speaker {
-  name: string
-  speaker_uuid: string
-  styles: Style[]
-}
+import { withAccessPolicy } from '@/lib/accessPolicy/withAccessPolicy'
+import type { PolicyGate } from '@/lib/accessPolicy/withAccessPolicy'
+import { routePolicies } from '@/lib/accessPolicy/routePolicies'
+import { validateSpeakersResponse } from '@/lib/api-services/validateSpeakersResponse'
 
 interface VoicevoxSpeaker {
   speaker: string
   id: number
 }
 
-export default async function handler(
+async function handler(
   req: NextApiRequest,
-  res: NextApiResponse
+  res: NextApiResponse,
+  gate: PolicyGate
 ) {
-  if (isRestrictedMode()) {
-    return res
-      .status(403)
-      .json(createRestrictedModeErrorResponse('update-voicevox-speakers'))
-  }
-
   try {
-    // APIからデータを取得
-    const rawServerUrl = Array.isArray(req.query.serverUrl)
-      ? req.query.serverUrl[0]
-      : req.query.serverUrl
-    const serverUrl =
-      rawServerUrl ||
-      process.env.VOICEVOX_SERVER_URL ||
-      'http://localhost:50021'
-    const parsedUrl = new URL(serverUrl)
-    if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
-      return res.status(400).json({ error: 'Invalid server URL protocol' })
-    }
+    const serverUrl = gate.serverUrl!.raw
     const response = await fetch(`${serverUrl}/speakers`)
-
-    if (!response.ok) {
-      throw new Error(
-        `VOICEVOX server responded with status: ${response.status}`
-      )
-    }
-
-    const speakers: Speaker[] = await response.json()
+    const speakers = await validateSpeakersResponse(response, 'VOICEVOX')
 
     // VOICEVOX形式に変換
     const voicevoxSpeakers: VoicevoxSpeaker[] = speakers.flatMap((speaker) =>
@@ -73,7 +39,12 @@ export default async function handler(
 
     res.status(200).json({ message: 'Speakers file updated successfully' })
   } catch (error) {
-    console.error('Error updating VOICEVOX speakers:', error)
+    logger.error('Error updating VOICEVOX speakers:', error)
     res.status(500).json({ error: 'Failed to update VOICEVOX speakers file' })
   }
 }
+
+export default withAccessPolicy(
+  routePolicies['/api/update-voicevox-speakers'],
+  handler
+)

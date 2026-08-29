@@ -2,8 +2,10 @@
  * PNGTuberHandler - speakQueueとの連携用ハンドラー
  */
 
+import { logger } from '@/lib/logger'
 import { Talk } from '../messages/messages'
 import homeStore from '@/features/stores/home'
+import type { PlaybackObserver } from '../messages/characterRenderer'
 
 export class PNGTuberHandler {
   /**
@@ -12,7 +14,8 @@ export class PNGTuberHandler {
   static async speak(
     audioBuffer: ArrayBuffer,
     _talk: Talk,
-    isNeedDecode: boolean = true
+    isNeedDecode: boolean = true,
+    observer?: PlaybackObserver
   ): Promise<void> {
     const hs = homeStore.getState()
     const pngTuberViewer = hs.pngTuberViewer
@@ -29,9 +32,14 @@ export class PNGTuberHandler {
       }
 
       pngTuberViewer
-        .playAudioFromBuffer(audioBuffer, isNeedDecode, finish)
+        .playAudioFromBuffer(
+          audioBuffer,
+          isNeedDecode,
+          finish,
+          observer?.onPlaybackStart
+        )
         .catch((e: Error) => {
-          console.error('PNGTuber speak error:', e)
+          logger.error('PNGTuber speak error:', e)
           finish()
         })
 

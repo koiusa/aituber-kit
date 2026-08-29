@@ -10,14 +10,24 @@ import type { NextApiRequest, NextApiResponse } from 'next'
 
 // OpenAI モジュールのモック
 const mockCreate = jest.fn()
+class MockAPIError extends Error {
+  status?: number
+  constructor(status: number, message: string) {
+    super(message)
+    this.status = status
+  }
+}
 jest.mock('openai', () => {
   return {
     __esModule: true,
-    default: jest.fn().mockImplementation(() => ({
-      embeddings: {
-        create: mockCreate,
-      },
-    })),
+    default: Object.assign(
+      jest.fn().mockImplementation(() => ({
+        embeddings: {
+          create: mockCreate,
+        },
+      })),
+      { APIError: MockAPIError }
+    ),
   }
 })
 
@@ -46,6 +56,7 @@ describe('/api/embedding', () => {
     it('テキストをベクトル化して1536次元のembeddingを返す', async () => {
       // Arrange
       process.env.OPENAI_API_KEY = 'test-api-key'
+      process.env.AITUBERKIT_SERVER_SECRET_ACCESS_MODE = 'unprotected'
       const mockEmbedding = new Array(1536).fill(0.1)
       mockCreate.mockResolvedValue({
         data: [{ embedding: mockEmbedding }],
@@ -119,6 +130,9 @@ describe('/api/embedding', () => {
     it('textパラメータがない場合は400エラーを返す', async () => {
       // Arrange
       process.env.OPENAI_API_KEY = 'test-api-key'
+      // 統一アクセスポリシーではガード評価がパラメータ検証より先に走るため、
+      // env キー使用時はガードを通過させた上で 400 を検証する
+      process.env.AITUBERKIT_SERVER_SECRET_ACCESS_MODE = 'unprotected'
       const { req, res } = createMocks<NextApiRequest, NextApiResponse>({
         method: 'POST',
         body: {},
@@ -157,11 +171,33 @@ describe('/api/embedding', () => {
       expect(data.code).toBe('API_KEY_MISSING')
     })
 
+    it('サーバー側APIキーはデフォルトで拒否する', async () => {
+      // Arrange
+      process.env.OPENAI_API_KEY = 'test-api-key'
+      delete process.env.AITUBERKIT_SERVER_SECRET_ACCESS_MODE
+      const { req, res } = createMocks<NextApiRequest, NextApiResponse>({
+        method: 'POST',
+        body: { text: 'テスト' },
+      })
+
+      handler = await importHandler()
+
+      // Act
+      await handler(req, res)
+
+      // Assert
+      expect(res._getStatusCode()).toBe(403)
+      const data = JSON.parse(res._getData())
+      expect(data.errorCode).toBe('ServerSecretAccessDenied')
+      expect(data.feature).toBe('embedding')
+      expect(mockCreate).not.toHaveBeenCalled()
+    })
+
     it('OpenAI APIからレート制限エラーが返された場合は429エラーを返す', async () => {
       // Arrange
       process.env.OPENAI_API_KEY = 'test-api-key'
-      const rateLimitError = new Error('Rate limit exceeded')
-      ;(rateLimitError as any).status = 429
+      process.env.AITUBERKIT_SERVER_SECRET_ACCESS_MODE = 'unprotected'
+      const rateLimitError = new MockAPIError(429, 'Rate limit exceeded')
       mockCreate.mockRejectedValue(rateLimitError)
 
       const { req, res } = createMocks<NextApiRequest, NextApiResponse>({
@@ -183,6 +219,7 @@ describe('/api/embedding', () => {
     it('OpenAI API呼び出しが失敗した場合は500エラーを返す', async () => {
       // Arrange
       process.env.OPENAI_API_KEY = 'test-api-key'
+      process.env.AITUBERKIT_SERVER_SECRET_ACCESS_MODE = 'unprotected'
       mockCreate.mockRejectedValue(new Error('API error'))
 
       const { req, res } = createMocks<NextApiRequest, NextApiResponse>({
@@ -206,6 +243,7 @@ describe('/api/embedding', () => {
     it('text-embedding-3-smallモデルを使用してEmbedding APIを呼び出す', async () => {
       // Arrange
       process.env.OPENAI_API_KEY = 'test-api-key'
+      process.env.AITUBERKIT_SERVER_SECRET_ACCESS_MODE = 'unprotected'
       const mockEmbedding = new Array(1536).fill(0.1)
       mockCreate.mockResolvedValue({
         data: [{ embedding: mockEmbedding }],

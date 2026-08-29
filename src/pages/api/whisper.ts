@@ -1,6 +1,23 @@
+import { logger } from '@/lib/logger'
 import type { NextApiRequest, NextApiResponse } from 'next'
 import OpenAI from 'openai'
 import { Buffer } from 'buffer'
+import { withAccessPolicy } from '@/lib/accessPolicy/withAccessPolicy'
+import type { PolicyGate } from '@/lib/accessPolicy/withAccessPolicy'
+import { routePolicies } from '@/lib/accessPolicy/routePolicies'
+import { computeUsesServerSecret } from '@/lib/accessPolicy/secretPairs'
+import {
+  defaultOpenAITranscriptionModel,
+  openAIWhisperModels,
+} from '@/features/constants/aiModels'
+
+const MAX_WHISPER_REQUEST_BODY_BYTES = 25 * 1024 * 1024
+
+function createBodyTooLargeError(): NodeJS.ErrnoException {
+  const error = new Error('Request body is too large') as NodeJS.ErrnoException
+  error.code = 'BodyTooLarge'
+  return error
+}
 
 // FormDataのパース用に設定を無効化
 export const config = {
@@ -9,17 +26,14 @@ export const config = {
   },
 }
 
-export default async function handler(
+async function handler(
   req: NextApiRequest,
-  res: NextApiResponse
+  res: NextApiResponse,
+  gate: PolicyGate
 ) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' })
-  }
-
   try {
     // リクエストボディをバッファとして取得
-    const buffer = await getRawBody(req)
+    const buffer = await getRawBody(req, MAX_WHISPER_REQUEST_BODY_BYTES)
 
     // Content-Typeからバウンダリを抽出
     const contentTypeHeader = req.headers['content-type']
@@ -41,7 +55,7 @@ export default async function handler(
     let audioFilePart = null
     let language = undefined
     let openaiKey = undefined
-    let model = 'whisper-1'
+    let model = defaultOpenAITranscriptionModel as string
 
     for (const part of parts) {
       if (part.name === 'file' && part.filename) {
@@ -59,7 +73,11 @@ export default async function handler(
       return res.status(400).json({ error: 'No audio file provided' })
     }
 
-    console.log('Received audio file:', {
+    if (!(openAIWhisperModels as readonly string[]).includes(model)) {
+      return res.status(400).json({ error: 'Unsupported transcription model' })
+    }
+
+    logger.log('Received audio file:', {
       filename: audioFilePart.filename,
       contentType: audioFilePart.type,
       dataSize: audioFilePart.data.length,
@@ -72,9 +90,16 @@ export default async function handler(
       process.env.OPENAI_API_KEY ||
       process.env.NEXT_PUBLIC_OPENAI_API_KEY ||
       process.env.NEXT_PUBLIC_OPENAI_KEY
+    const usesServerSecret = computeUsesServerSecret([
+      [openaiKey, process.env.OPENAI_API_KEY],
+    ])
 
     if (!apiKey) {
       return res.status(500).json({ error: 'OpenAI API key is not configured' })
+    }
+
+    if (!gate.guardServerSecret(usesServerSecret)) {
+      return
     }
 
     const openai = new OpenAI({
@@ -94,44 +119,87 @@ export default async function handler(
       { type: audioFilePart.type || 'audio/webm' }
     )
 
-    // Whisper APIに送信
-    console.log(`Sending audio data to Whisper API using model: ${model}`)
+    // OpenAI文字起こしAPIに送信
+    logger.log(`Sending audio data to transcription API using model: ${model}`)
     const response = await openai.audio.transcriptions.create({
       file: audioFile,
       model: model,
-      language: language || undefined,
-      response_format: 'json',
+      ...(model === defaultOpenAITranscriptionModel
+        ? {}
+        : {
+            language: language || undefined,
+            response_format: 'json' as const,
+          }),
     })
 
-    console.log('Whisper API response:', response)
+    logger.log('OpenAI transcription API response received', {
+      model,
+      textLength: response.text?.length ?? 0,
+    })
 
     return res.status(200).json({ text: response.text })
-  } catch (error: any) {
-    console.error('Whisper API error:', error)
+  } catch (error) {
+    logger.error('Whisper API error:', error)
+
+    const errnoError = error as NodeJS.ErrnoException
+    if (errnoError?.code === 'BodyTooLarge') {
+      return res.status(413).json({
+        error: 'Request body is too large',
+        maxBytes: MAX_WHISPER_REQUEST_BODY_BYTES,
+      })
+    }
 
     // エラーの詳細をクライアントに返す
     return res.status(500).json({
       error: 'Failed to process audio',
       details: error instanceof Error ? error.message : String(error),
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+      stack:
+        process.env.NODE_ENV === 'development' && error instanceof Error
+          ? error.stack
+          : undefined,
     })
   }
 }
 
+export default withAccessPolicy(routePolicies['/api/whisper'], handler)
+
 // リクエストボディをRawデータとして取得する関数
-async function getRawBody(req: NextApiRequest): Promise<Buffer> {
+async function getRawBody(
+  req: NextApiRequest,
+  maxBytes: number
+): Promise<Buffer> {
   return new Promise((resolve, reject) => {
+    const contentLength = Number(req.headers['content-length'])
+    if (Number.isFinite(contentLength) && contentLength > maxBytes) {
+      reject(createBodyTooLargeError())
+      return
+    }
+
     const chunks: Buffer[] = []
+    let totalBytes = 0
+    let settled = false
 
     req.on('data', (chunk) => {
+      if (settled) return
+      totalBytes += chunk.length
+      if (totalBytes > maxBytes) {
+        settled = true
+        reject(createBodyTooLargeError())
+        req.destroy()
+        return
+      }
       chunks.push(chunk)
     })
 
     req.on('end', () => {
+      if (settled) return
+      settled = true
       resolve(Buffer.concat(chunks))
     })
 
     req.on('error', (err) => {
+      if (settled) return
+      settled = true
       reject(err)
     })
   })

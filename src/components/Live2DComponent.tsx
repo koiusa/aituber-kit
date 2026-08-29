@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { Application, Ticker, DisplayObject } from 'pixi.js'
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { Live2DModel } from 'pixi-live2d-display-lipsyncpatch/cubism4'
@@ -5,8 +6,10 @@ import homeStore from '@/features/stores/home'
 import settingsStore from '@/features/stores/settings'
 import { Live2DHandler } from '@/features/messages/live2dHandler'
 import { debounce } from 'lodash'
+import ModelLoadingOverlay from '@/components/modelLoadingOverlay'
+import { reportViewerError } from '@/components/common/ErrorBoundary'
 
-console.log('Live2DComponent module loaded')
+logger.log('Live2DComponent module loaded')
 
 const setModelPosition = (
   app: Application,
@@ -34,7 +37,7 @@ const setModelPosition = (
 }
 
 const Live2DComponent = (): JSX.Element => {
-  console.log('Live2DComponent rendering')
+  logger.log('Live2DComponent rendering')
 
   const canvasContainerRef = useRef<HTMLCanvasElement>(null)
   const appRef = useRef<Application | null>(null)
@@ -42,7 +45,9 @@ const Live2DComponent = (): JSX.Element => {
   const [model, setModel] = useState<InstanceType<typeof Live2DModel> | null>(
     null
   )
+  const [isModelLoading, setIsModelLoading] = useState(false)
   const modelRef = useRef<InstanceType<typeof Live2DModel> | null>(null)
+  const loadRequestIdRef = useRef(0)
   const [isDragging, setIsDragging] = useState(false)
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
   const selectedLive2DPath = settingsStore((state) => state.selectedLive2DPath)
@@ -122,7 +127,7 @@ const Live2DComponent = (): JSX.Element => {
       appRef.current = app
       setApp(app)
     } catch (error) {
-      console.error('Failed to initialize PIXI Application:', error)
+      logger.error('Failed to initialize PIXI Application:', error)
     }
   }
 
@@ -131,7 +136,8 @@ const Live2DComponent = (): JSX.Element => {
     modelPath: string
   ) => {
     if (!canvasContainerRef.current) return
-    const hs = homeStore.getState()
+    const requestId = ++loadRequestIdRef.current
+    setIsModelLoading(true)
 
     try {
       const newModel = await Live2DModel.fromSync(modelPath, {
@@ -146,6 +152,11 @@ const Live2DComponent = (): JSX.Element => {
         setTimeout(() => reject(new Error('Model load timeout')), 10000)
       })
 
+      if (requestId !== loadRequestIdRef.current) {
+        newModel.destroy()
+        return
+      }
+
       currentApp.stage.addChild(newModel as unknown as DisplayObject)
       newModel.anchor.set(0.5, 0.5)
       setModelPosition(currentApp, newModel)
@@ -158,7 +169,12 @@ const Live2DComponent = (): JSX.Element => {
 
       await Live2DHandler.resetToIdle()
     } catch (error) {
-      console.error('Failed to load Live2D model:', error)
+      // 非同期のロード失敗はErrorBoundaryに届かないため、ここから直接通知する
+      reportViewerError('live2d-viewer', 'Failed to load Live2D model:', error)
+    } finally {
+      if (requestId === loadRequestIdRef.current) {
+        setIsModelLoading(false)
+      }
     }
   }
 
@@ -383,12 +399,13 @@ const Live2DComponent = (): JSX.Element => {
   }, [app, model])
 
   return (
-    <div className="w-screen h-screen">
+    <div className="relative h-screen w-screen">
       <canvas
         ref={canvasContainerRef}
         className="w-full h-full"
         onContextMenu={(e) => e.preventDefault()}
       />
+      {isModelLoading && <ModelLoadingOverlay />}
     </div>
   )
 }

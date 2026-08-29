@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import i18n from 'i18next'
 import { useEffect, useState } from 'react'
 import { useTranslation, Trans } from 'react-i18next'
@@ -23,7 +24,7 @@ export const Introduction = () => {
   }, [showIntroduction])
 
   const updateLanguage = () => {
-    console.log('i18n.language', i18n.language)
+    logger.log('i18n.language', i18n.language)
 
     let languageCode = i18n.language
 
@@ -46,7 +47,7 @@ export const Introduction = () => {
 
   return displayIntroduction && opened ? (
     <div className="absolute z-40 flex h-full w-full items-center bg-black/35 px-3 py-8 font-M_PLUS_2 backdrop-blur-sm sm:px-6">
-      <div className="theme-surface-elevated relative mx-auto max-h-full w-full max-w-3xl overflow-y-auto rounded-xl border p-4 text-theme-default shadow-xl backdrop-blur-md sm:p-6">
+      <div className="theme-surface-elevated relative mx-auto max-h-full w-full max-w-3xl overflow-y-auto rounded-xl border p-4 text-theme-default shadow-xl sm:p-6">
         <div className="sticky -top-4 z-10 -mx-4 mb-5 flex items-center justify-between border-b border-primary/20 bg-[color-mix(in_srgb,var(--color-text-base)_94%,transparent)] px-4 py-3 backdrop-blur-md sm:-top-6 sm:-mx-6 sm:px-6">
           <div>
             <div className="text-xs font-bold uppercase tracking-wider text-text-primary">

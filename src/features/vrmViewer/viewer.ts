@@ -4,6 +4,7 @@ import { loadVRMAnimation } from '@/lib/VRMAnimation/loadVRMAnimation'
 import { buildUrl } from '@/utils/buildUrl'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import settingsStore from '@/features/stores/settings'
+import { reportViewerError } from '@/components/common/ErrorBoundary'
 
 /**
  * three.jsを使った3Dビューワー
@@ -13,6 +14,7 @@ import settingsStore from '@/features/stores/settings'
 export class Viewer {
   public isReady: boolean
   public model?: Model
+  public onModelLoadingChange?: (isLoading: boolean) => void
 
   private _renderer?: THREE.WebGLRenderer
   private _clock: THREE.Clock
@@ -21,6 +23,7 @@ export class Viewer {
   private _cameraControls?: OrbitControls
   private _directionalLight?: THREE.DirectionalLight
   private _ambientLight?: THREE.AmbientLight
+  private _loadVrmRequestId = 0
 
   constructor() {
     this.isReady = false
@@ -49,23 +52,32 @@ export class Viewer {
     this._clock.start()
   }
 
-  public loadVrm(url: string) {
+  public loadVrm(url: string): Promise<void> {
+    const requestId = ++this._loadVrmRequestId
+    this.onModelLoadingChange?.(true)
+
     if (this.model?.vrm) {
       this.unloadVRM()
     }
 
     // gltf and vrm
-    this.model = new Model(this._camera || new THREE.Object3D())
-    this.model.loadVRM(url).then(async () => {
-      if (!this.model?.vrm) return
+    const model = new Model(this._camera || new THREE.Object3D())
+    this.model = model
+    return model
+      .loadVRM(url)
+      .then(async () => {
+        if (this.model !== model || !model.vrm) {
+          model.unLoadVrm()
+          return
+        }
 
-      // Disable frustum culling
-      this.model.vrm.scene.traverse((obj) => {
-        obj.frustumCulled = false
-      })
+        // Disable frustum culling
+        model.vrm.scene.traverse((obj) => {
+          obj.frustumCulled = false
+        })
 
-      this.model.vrm.scene.visible = false
-      this._scene.add(this.model.vrm.scene)
+        model.vrm.scene.visible = false
+        this._scene.add(model.vrm.scene)
 
       try {
         const vrma = await loadVRMAnimation(buildUrl('/animations/idle_loop.vrma'))
@@ -74,11 +86,20 @@ export class Viewer {
         this.model.vrm.scene.visible = true
       }
 
-      // HACK: アニメーションの原点がずれているので再生後にカメラ位置を調整する
-      requestAnimationFrame(() => {
-        this.resetCamera()
+        // HACK: アニメーションの原点がずれているので再生後にカメラ位置を調整する
+        requestAnimationFrame(() => {
+          this.resetCamera()
+        })
       })
-    })
+      .catch((error) => {
+        // 非同期のロード失敗はErrorBoundaryに届かないため、ここから直接通知する
+        reportViewerError('vrm-viewer', 'Failed to load VRM:', error)
+      })
+      .finally(() => {
+        if (requestId === this._loadVrmRequestId) {
+          this.onModelLoadingChange?.(false)
+        }
+      })
   }
 
   public unloadVRM(): void {

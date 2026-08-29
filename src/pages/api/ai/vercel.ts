@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { Message } from '@/features/messages/messages'
 import { NextApiRequest, NextApiResponse } from 'next'
 import {
@@ -14,6 +15,10 @@ import {
 import { buildReasoningProviderOptions } from '@/lib/api-services/providerOptionsBuilder'
 import { googleSearchGroundingModels } from '@/features/constants/aiModels'
 import { pipeResponse } from '@/utils/pipeResponse'
+import { withAccessPolicy } from '@/lib/accessPolicy/withAccessPolicy'
+import type { PolicyGate } from '@/lib/accessPolicy/withAccessPolicy'
+import { routePolicies } from '@/lib/accessPolicy/routePolicies'
+import { guardLocalLlmUrl } from '@/lib/accessPolicy/guardLocalLlmUrl'
 
 export const config = {
   api: {
@@ -23,16 +28,11 @@ export const config = {
   },
 }
 
-export default async function handler(
+async function handler(
   req: NextApiRequest,
-  res: NextApiResponse
+  res: NextApiResponse,
+  gate: PolicyGate
 ) {
-  if (req.method !== 'POST') {
-    return res
-      .status(405)
-      .json({ error: 'Method Not Allowed', errorCode: 'METHOD_NOT_ALLOWED' })
-  }
-
   const {
     messages,
     apiKey,
@@ -48,10 +48,12 @@ export default async function handler(
     reasoningMode = false,
     reasoningEffort = 'medium',
     reasoningTokenBudget = 8192,
+    customModel = false,
   } = req.body
 
   // APIキーの取得と検証
   let aiApiKey = apiKey
+  let usesServerSecret = false
   if (isVercelCloudAIService(aiService)) {
     if (!aiApiKey) {
       // 環境変数から[サービス名]_KEY または [サービス名]_API_KEY の形式でAPIキーを取得
@@ -60,12 +62,17 @@ export default async function handler(
         process.env[`${servicePrefix}_KEY`] ||
         process.env[`${servicePrefix}_API_KEY`] ||
         ''
+      usesServerSecret = Boolean(aiApiKey)
     }
     if (!aiApiKey) {
       return res
         .status(400)
         .json({ error: 'Empty API Key', errorCode: 'EmptyAPIKey' })
     }
+  }
+
+  if (!gate.guardServerSecret(usesServerSecret)) {
+    return
   }
 
   // ローカルLLMのURL検証
@@ -76,18 +83,30 @@ export default async function handler(
         errorCode: 'EmptyLocalLLMURL',
       })
     }
+    if (!guardLocalLlmUrl(res, gate, localLlmUrl)) {
+      return
+    }
   }
 
   // Azureのエンドポイントとデプロイメント名の処理
-  let modifiedAzureEndpoint = (
-    azureEndpoint ||
-    process.env.AZURE_ENDPOINT ||
+  const azureEndpointValue =
+    aiService === 'azure'
+      ? azureEndpoint || process.env.AZURE_ENDPOINT || ''
+      : ''
+  const usesServerAzureEndpoint =
+    aiService === 'azure' &&
+    !azureEndpoint &&
+    Boolean(process.env.AZURE_ENDPOINT)
+  if (!gate.guardServerSecret(usesServerAzureEndpoint)) {
+    return
+  }
+
+  let modifiedAzureEndpoint = azureEndpointValue.replace(
+    /^https:\/\/|\.openai\.azure\.com.*$/g,
     ''
-  ).replace(/^https:\/\/|\.openai\.azure\.com.*$/g, '')
+  )
   let modifiedAzureDeployment =
-    (azureEndpoint || process.env.AZURE_ENDPOINT || '').match(
-      /\/deployments\/([^\/]+)/
-    )?.[1] || ''
+    azureEndpointValue.match(/\/deployments\/([^\/]+)/)?.[1] || ''
   let modifiedModel = aiService === 'azure' ? modifiedAzureDeployment : model
 
   // モデル名のバリデーション
@@ -138,15 +157,14 @@ export default async function handler(
       }
     }
 
-    console.log('options', options)
-
     // 推論モードのproviderOptionsを構築
     const providerOptions = buildReasoningProviderOptions(
       aiService,
       modifiedModel,
       reasoningMode,
       reasoningEffort,
-      reasoningTokenBudget
+      reasoningTokenBudget,
+      customModel
     )
 
     // ストリーミングレスポンスまたは一括レスポンスの生成
@@ -176,7 +194,7 @@ export default async function handler(
 
     return pipeResponse(response, res)
   } catch (error) {
-    console.error('Error in AI API call:', error)
+    logger.error('Error in AI API call:', error)
 
     return res.status(500).json({
       error: 'Unexpected Error',
@@ -184,3 +202,5 @@ export default async function handler(
     })
   }
 }
+
+export default withAccessPolicy(routePolicies['/api/ai/vercel'], handler)

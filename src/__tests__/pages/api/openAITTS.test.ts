@@ -2,64 +2,19 @@
  * @jest-environment node
  */
 
-const mockSpeechCreate = jest.fn()
-jest.mock('openai', () => {
-  return jest.fn().mockImplementation(() => ({
-    audio: {
-      speech: {
-        create: mockSpeechCreate,
-      },
-    },
-  }))
-})
-
-import type { NextApiRequest, NextApiResponse } from 'next'
 import handler from '@/pages/api/openAITTS'
+import { createMockReq, createMockRes } from '../../helpers/apiRouteTestUtils'
 
-function createMockReq(
-  overrides: Partial<NextApiRequest> = {}
-): NextApiRequest {
-  return {
-    method: 'POST',
-    body: {},
-    ...overrides,
-  } as NextApiRequest
-}
-
-function createMockRes() {
-  const res = {
-    _status: 200,
-    _json: null as unknown,
-    _body: null as unknown,
-    _headers: {} as Record<string, string>,
-    status(code: number) {
-      res._status = code
-      return res
-    },
-    json(data: unknown) {
-      res._json = data
-      return res
-    },
-    send(data: unknown) {
-      res._body = data
-      return res
-    },
-    setHeader(key: string, value: string) {
-      res._headers[key] = value
-      return res
-    },
-  }
-  return res as unknown as NextApiResponse & {
-    _status: number
-    _json: unknown
-    _body: unknown
-    _headers: Record<string, string>
-  }
-}
+const originalFetch = global.fetch
 
 describe('/api/openAITTS', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    global.fetch = jest.fn()
+  })
+
+  afterAll(() => {
+    global.fetch = originalFetch
   })
 
   it('should return 405 for non-POST methods', async () => {
@@ -127,9 +82,12 @@ describe('/api/openAITTS', () => {
 
   it('should return audio buffer on success', async () => {
     const fakeBuffer = Buffer.from('fake-audio')
-    mockSpeechCreate.mockResolvedValue({
-      arrayBuffer: () => Promise.resolve(fakeBuffer),
-    })
+    ;(global.fetch as jest.Mock).mockResolvedValue(
+      new Response(fakeBuffer, {
+        status: 200,
+        headers: { 'content-type': 'audio/mpeg' },
+      })
+    )
 
     const req = createMockReq({
       body: {
@@ -148,11 +106,203 @@ describe('/api/openAITTS', () => {
     expect(res._body).toBeTruthy()
   })
 
+  it('should proxy raw PCM chunks in streaming mode', async () => {
+    const upstream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new Uint8Array([1, 2]))
+        controller.enqueue(new Uint8Array([3, 4]))
+        controller.close()
+      },
+    })
+    ;(global.fetch as jest.Mock).mockResolvedValue(
+      new Response(upstream, {
+        status: 200,
+        headers: { 'content-type': 'audio/pcm' },
+      })
+    )
+
+    const req = createMockReq({
+      query: { stream: 'true' },
+      body: {
+        message: 'hello',
+        voice: 'alloy',
+        model: 'tts-1',
+        speed: 1,
+        apiKey: 'key',
+      },
+    })
+    const res = createMockRes()
+
+    await handler(req, res)
+
+    const requestBody = JSON.parse(
+      (global.fetch as jest.Mock).mock.calls[0][1].body
+    )
+    expect(requestBody.response_format).toBe('pcm')
+    expect(res._headers['Content-Type']).toBe('audio/pcm')
+    expect(res._headers['X-Audio-Sample-Rate']).toBe('24000')
+    expect(Buffer.concat(res._writeChunks as Buffer[])).toEqual(
+      Buffer.from([1, 2, 3, 4])
+    )
+  })
+
+  it('should wait for drain before reading the next PCM chunk', async () => {
+    const upstream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new Uint8Array([1, 2]))
+        controller.enqueue(new Uint8Array([3, 4]))
+        controller.close()
+      },
+    })
+    ;(global.fetch as jest.Mock).mockResolvedValue(
+      new Response(upstream, { status: 200 })
+    )
+    const req = createMockReq({
+      query: { stream: 'true' },
+      body: {
+        message: 'hello',
+        voice: 'alloy',
+        model: 'tts-1',
+        speed: 1,
+        apiKey: 'key',
+      },
+    })
+    const res = createMockRes()
+    let notifyFirstWrite!: () => void
+    const firstWrite = new Promise<void>((resolve) => {
+      notifyFirstWrite = resolve
+    })
+    jest
+      .spyOn(res, 'write')
+      .mockImplementationOnce((chunk) => {
+        res._writeChunks.push(chunk)
+        notifyFirstWrite()
+        return false
+      })
+      .mockImplementationOnce((chunk) => {
+        res._writeChunks.push(chunk)
+        return true
+      })
+
+    const handling = handler(req, res)
+    await firstWrite
+
+    expect(res.write).toHaveBeenCalledTimes(1)
+
+    res._emit('drain')
+    await handling
+
+    expect(res.write).toHaveBeenCalledTimes(2)
+    expect(res._ended).toBe(true)
+  })
+
+  it('should cancel the upstream PCM stream when the client disconnects', async () => {
+    const cancel = jest.fn()
+    const upstream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new Uint8Array([1, 2]))
+      },
+      cancel,
+    })
+    ;(global.fetch as jest.Mock).mockResolvedValue(
+      new Response(upstream, { status: 200 })
+    )
+    const req = createMockReq({
+      query: { stream: 'true' },
+      body: {
+        message: 'hello',
+        voice: 'alloy',
+        model: 'tts-1',
+        speed: 1,
+        apiKey: 'key',
+      },
+    })
+    const res = createMockRes()
+    jest.spyOn(res, 'write').mockImplementation((chunk) => {
+      res._writeChunks.push(chunk)
+      res._emit('close')
+      return true
+    })
+
+    await handler(req, res)
+    await Promise.resolve()
+
+    expect(cancel).toHaveBeenCalledTimes(1)
+  })
+
+  it('should abort the upstream request when the client disconnects before headers', async () => {
+    let signal!: AbortSignal
+    let notifyFetchStarted!: () => void
+    const fetchStarted = new Promise<void>((resolve) => {
+      notifyFetchStarted = resolve
+    })
+    ;(global.fetch as jest.Mock).mockImplementation(
+      (_url: string, init: RequestInit) => {
+        signal = init.signal as AbortSignal
+        notifyFetchStarted()
+        return new Promise((_resolve, reject) => {
+          signal.addEventListener('abort', () => reject(new Error('aborted')))
+        })
+      }
+    )
+    const req = createMockReq({
+      query: { stream: 'true' },
+      body: {
+        message: 'hello',
+        voice: 'alloy',
+        model: 'tts-1',
+        speed: 1,
+        apiKey: 'key',
+      },
+    })
+    const res = createMockRes()
+
+    const handling = handler(req, res)
+    await fetchStarted
+    res._emit('close')
+    await handling
+
+    expect(signal.aborted).toBe(true)
+    expect(res._json).toBeNull()
+  })
+
+  it('should end an already-started PCM response when upstream reading fails', async () => {
+    jest.spyOn(console, 'error').mockImplementation(() => {})
+    const upstream = new ReadableStream<Uint8Array>({
+      pull() {
+        throw new Error('stream failed')
+      },
+    })
+    ;(global.fetch as jest.Mock).mockResolvedValue(
+      new Response(upstream, { status: 200 })
+    )
+    const req = createMockReq({
+      query: { stream: 'true' },
+      body: {
+        message: 'hello',
+        voice: 'alloy',
+        model: 'tts-1',
+        speed: 1,
+        apiKey: 'key',
+      },
+    })
+    const res = createMockRes()
+
+    await handler(req, res)
+
+    expect(res._status).toBe(200)
+    expect(res._json).toBeNull()
+    expect(res._ended).toBe(true)
+  })
+
   it('should add emotional instructions for gpt-4o model', async () => {
     const fakeBuffer = Buffer.from('audio')
-    mockSpeechCreate.mockResolvedValue({
-      arrayBuffer: () => Promise.resolve(fakeBuffer),
-    })
+    ;(global.fetch as jest.Mock).mockResolvedValue(
+      new Response(fakeBuffer, {
+        status: 200,
+        headers: { 'content-type': 'audio/mpeg' },
+      })
+    )
 
     const req = createMockReq({
       body: {
@@ -167,15 +317,20 @@ describe('/api/openAITTS', () => {
 
     await handler(req, res)
 
-    const callArgs = mockSpeechCreate.mock.calls[0][0]
+    const callArgs = JSON.parse(
+      (global.fetch as jest.Mock).mock.calls[0][1].body
+    )
     expect(callArgs.instructions).toContain('rich emotional expression')
   })
 
   it('should not add instructions for non-gpt-4o models', async () => {
     const fakeBuffer = Buffer.from('audio')
-    mockSpeechCreate.mockResolvedValue({
-      arrayBuffer: () => Promise.resolve(fakeBuffer),
-    })
+    ;(global.fetch as jest.Mock).mockResolvedValue(
+      new Response(fakeBuffer, {
+        status: 200,
+        headers: { 'content-type': 'audio/mpeg' },
+      })
+    )
 
     const req = createMockReq({
       body: {
@@ -190,13 +345,22 @@ describe('/api/openAITTS', () => {
 
     await handler(req, res)
 
-    const callArgs = mockSpeechCreate.mock.calls[0][0]
+    const callArgs = JSON.parse(
+      (global.fetch as jest.Mock).mock.calls[0][1].body
+    )
     expect(callArgs.instructions).toBeUndefined()
   })
 
   it('should return 500 on OpenAI API error', async () => {
-    mockSpeechCreate.mockRejectedValue(new Error('API error'))
-    jest.spyOn(console, 'error').mockImplementation(() => {})
+    ;(global.fetch as jest.Mock).mockResolvedValue(
+      new Response(JSON.stringify({ error: { message: 'API error' } }), {
+        status: 401,
+        headers: { 'content-type': 'application/json' },
+      })
+    )
+    const consoleErrorSpy = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => {})
 
     const req = createMockReq({
       body: {
@@ -212,6 +376,11 @@ describe('/api/openAITTS', () => {
     await handler(req, res)
 
     expect(res._status).toBe(500)
-    expect(res._json).toEqual({ error: 'Failed to generate speech' })
+    expect(res._json).toEqual({
+      error: 'Failed to generate speech',
+      errorCode: 'OpenAITTSUpstreamError',
+      status: 401,
+    })
+    consoleErrorSpy.mockRestore()
   })
 })

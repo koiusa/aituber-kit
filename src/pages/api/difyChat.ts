@@ -1,20 +1,16 @@
+import { logger } from '@/lib/logger'
 import { NextApiRequest, NextApiResponse } from 'next'
 import { pipeResponse } from '@/utils/pipeResponse'
+import { withAccessPolicy } from '@/lib/accessPolicy/withAccessPolicy'
+import { routePolicies } from '@/lib/accessPolicy/routePolicies'
 
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse
-) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({
-      error: 'DifyMethod Not Allowed',
-      errorCode: 'MethodNotAllowed',
-    })
-  }
-
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { query, apiKey, url, conversationId, stream } = req.body
 
-  const difyKey = apiKey || process.env.DIFY_KEY || process.env.DIFY_API_KEY
+  const usesClientUrl = Boolean(url)
+  const difyKey =
+    apiKey ||
+    (!usesClientUrl ? process.env.DIFY_KEY || process.env.DIFY_API_KEY : '')
   if (!difyKey) {
     return res
       .status(400)
@@ -77,10 +73,12 @@ export default async function handler(
       return res.status(200).json(data)
     }
   } catch (error) {
-    console.error('Error in Dify API call:', error)
+    logger.error('Error in Dify API call:', error)
     return res.status(500).json({
       error: 'Dify Internal Server Error',
       errorCode: 'AIAPIError',
     })
   }
 }
+
+export default withAccessPolicy(routePolicies['/api/difyChat'], handler)

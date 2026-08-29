@@ -1,7 +1,9 @@
+import { logger } from '@/lib/logger'
 import { useEffect, useRef, useState, useCallback } from 'react'
 import homeStore from '@/features/stores/home'
 import settingsStore from '@/features/stores/settings'
 import { PNGTuberEngine } from '@/features/pngTuber/pngTuberEngine'
+import ModelLoadingOverlay from '@/components/modelLoadingOverlay'
 
 const PNGTuberComponent = (): JSX.Element => {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -38,8 +40,9 @@ const PNGTuberComponent = (): JSX.Element => {
   const [error, setError] = useState<string | null>(null)
 
   // ローディング状態は比較で判断
-  const isLoading =
+  const isLoading = Boolean(
     selectedPNGTuberPath && loadedPath !== selectedPNGTuberPath && !error
+  )
 
   // エンジンを初期化
   useEffect(() => {
@@ -87,7 +90,7 @@ const PNGTuberComponent = (): JSX.Element => {
       })
       .catch((err) => {
         if (cancelled) return
-        console.error('Failed to load PNGTuber asset:', err)
+        logger.error('Failed to load PNGTuber asset:', err)
         setError('PNGTuberアセットの読み込みに失敗しました')
       })
 
@@ -133,7 +136,7 @@ const PNGTuberComponent = (): JSX.Element => {
       }
     }
     reader.onerror = () => {
-      console.error('Failed to read image file')
+      logger.error('Failed to read image file')
     }
   }, [])
 
@@ -260,11 +263,7 @@ const PNGTuberComponent = (): JSX.Element => {
         </div>
       )}
       {/* 読み込み中表示 */}
-      {isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div className="text-white">読み込み中...</div>
-        </div>
-      )}
+      {isLoading && <ModelLoadingOverlay />}
     </div>
   )
 }

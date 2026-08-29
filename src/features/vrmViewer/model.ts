@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import * as THREE from 'three'
 import {
   VRM,
@@ -16,6 +17,7 @@ import settingsStore from '@/features/stores/settings'
 import { MouseInteraction } from '../interaction/mouseInteraction'
 import { EventEmitter } from 'events'
 
+import type { PlaybackObserver } from '../messages/characterRenderer'
 
 /**
  * 3Dキャラクターを管理するクラス
@@ -130,7 +132,8 @@ export class Model {
   public async speak(
     buffer: ArrayBuffer,
     talk: Talk,
-    isNeedDecode: boolean = true
+    isNeedDecode: boolean = true,
+    observer?: PlaybackObserver
   ) {
     this.emoteController?.playEmotion(talk.emotion)
 
@@ -141,7 +144,7 @@ export class Model {
       if (poseConfig) {
         void this.poseManager
           .applyPose(this, talk.motion, poseConfig)
-          .catch((e) => console.error('Failed to apply pose:', e))
+          .catch((e) => logger.error('Failed to apply pose:', e))
       }
     } else if (this.poseManager.isActive) {
       // モーション指定なしの発話ではアクティブなポーズをリセット
@@ -154,9 +157,41 @@ export class Model {
         () => {
           resolve(true)
         },
-        isNeedDecode
+        isNeedDecode,
+        24000,
+        observer?.onPlaybackStart
       )
     })
+  }
+
+  /** ヘッダーなしPCM16を到着したチャンクから順に再生する。 */
+  public async speakPcm16Stream(
+    stream: ReadableStream<Uint8Array>,
+    talk: Talk,
+    sampleRate: number,
+    observer?: PlaybackObserver
+  ) {
+    this.emoteController?.playEmotion(talk.emotion)
+
+    if (talk.motion) {
+      const poseConfig = settingsStore
+        .getState()
+        .poseConfigs.find((p) => p.id === talk.motion)
+      if (poseConfig) {
+        void this.poseManager
+          .applyPose(this, talk.motion, poseConfig)
+          .catch((e) => logger.error('Failed to apply pose:', e))
+      }
+    } else if (this.poseManager.isActive) {
+      this.poseManager.resetToIdle(this)
+    }
+
+    await this._lipSync?.playPcm16Stream(
+      stream,
+      undefined,
+      sampleRate,
+      observer?.onPlaybackStart
+    )
   }
 
   /**

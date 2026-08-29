@@ -1,18 +1,22 @@
+import { logger } from '@/lib/logger'
 import type { NextApiRequest, NextApiResponse } from 'next'
 import axios from 'axios'
+import { withAccessPolicy } from '@/lib/accessPolicy/withAccessPolicy'
+import type { PolicyGate } from '@/lib/accessPolicy/withAccessPolicy'
+import { routePolicies } from '@/lib/accessPolicy/routePolicies'
 
 type Data = {
   audio?: ArrayBuffer
   error?: string
 }
 
-export default async function handler(
+async function handler(
   req: NextApiRequest,
-  res: NextApiResponse<Data>
+  res: NextApiResponse<Data>,
+  gate: PolicyGate
 ) {
-  const { text, speaker, speed, pitch, intonation, serverUrl } = req.body
-  const apiUrl =
-    serverUrl || process.env.VOICEVOX_SERVER_URL || 'http://localhost:50021'
+  const { text, speaker, speed, pitch, intonation } = req.body
+  const apiUrl = gate.serverUrl!.raw
 
   try {
     // 1. Audio Query の生成
@@ -49,7 +53,9 @@ export default async function handler(
     res.setHeader('Content-Type', 'audio/wav')
     res.end(Buffer.from(synthesisResponse.data))
   } catch (error) {
-    console.error('Error in VOICEVOX TTS:', error)
+    logger.error('Error in VOICEVOX TTS:', error)
     res.status(500).json({ error: 'Internal Server Error' })
   }
 }
+
+export default withAccessPolicy(routePolicies['/api/tts-voicevox'], handler)

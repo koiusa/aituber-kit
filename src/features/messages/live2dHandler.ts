@@ -1,6 +1,8 @@
+import { logger } from '@/lib/logger'
 import { Talk } from './messages'
 import homeStore from '@/features/stores/home'
 import settingsStore from '@/features/stores/settings'
+import type { PlaybackObserver } from './characterRenderer'
 
 export class Live2DHandler {
   private static idleMotionInterval: NodeJS.Timeout | null = null // インターバルIDを保持
@@ -8,7 +10,8 @@ export class Live2DHandler {
   static async speak(
     audioBuffer: ArrayBuffer,
     talk: Talk,
-    isNeedDecode: boolean = true
+    isNeedDecode: boolean = true,
+    observer?: PlaybackObserver
   ) {
     const hs = homeStore.getState()
     const ss = settingsStore.getState()
@@ -119,11 +122,12 @@ export class Live2DHandler {
         expression,
         resetExpression: true,
         onFinish: finish,
-        onError: (e: any) => {
-          console.error('speak error:', e)
+        onError: (e: Error) => {
+          logger.error('speak error:', e)
           finish()
         },
       })
+      observer?.onPlaybackStart?.()
 
       // フォールバック: 音声の理論上の再生時間 + 1 秒で強制解決
       const fallbackTimeout = (decodedAudio.duration || 0) * 1000 + 1000
@@ -178,7 +182,7 @@ export class Live2DHandler {
       const viewer = hs.live2dViewer
 
       // Viewerが存在しない、または破棄済みの場合はインターバルを停止
-      if (!viewer || (viewer as any).destroyed) {
+      if (!viewer || viewer.destroyed) {
         this.stopIdleMotion()
         return
       }
@@ -186,7 +190,7 @@ export class Live2DHandler {
       try {
         viewer.motion(idleMotion)
       } catch (error) {
-        console.error('Idle motion failed:', error)
+        logger.error('Idle motion failed:', error)
         this.stopIdleMotion()
       }
     }, 5000)

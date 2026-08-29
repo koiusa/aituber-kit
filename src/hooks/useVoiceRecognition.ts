@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { useEffect, useCallback, useRef } from 'react'
 import { useIsomorphicLayoutEffect } from './useIsomorphicLayoutEffect'
 import settingsStore from '@/features/stores/settings'
@@ -6,6 +7,14 @@ import { SpeakQueue } from '@/features/messages/speakQueue'
 import { useBrowserSpeechRecognition } from './useBrowserSpeechRecognition'
 import { useWhisperRecognition } from './useWhisperRecognition'
 import { useRealtimeVoiceAPI } from './useRealtimeVoiceAPI'
+import { useLiveTranscription } from './useLiveTranscription'
+import {
+  DEFAULT_VOICE_INPUT_SHORTCUT,
+  hasCommandModifier,
+  isEditableKeyboardTarget,
+  isKeyboardShortcutRelease,
+  matchesKeyboardShortcut,
+} from '@/utils/keyboardShortcut'
 
 type UseVoiceRecognitionProps = {
   onChatProcessStart: (text: string) => void
@@ -24,6 +33,8 @@ export function useVoiceRecognition({
   const continuousMicListeningMode = settingsStore(
     (s) => s.continuousMicListeningMode
   )
+  const voiceInputShortcut =
+    settingsStore((s) => s.voiceInputShortcut) || DEFAULT_VOICE_INPUT_SHORTCUT
 
   // ----- 各モードのフックを使用 -----
   // ブラウザ音声認識フック
@@ -35,13 +46,17 @@ export function useVoiceRecognition({
   // リアルタイムAPI処理フック
   const realtimeAPI = useRealtimeVoiceAPI(onChatProcessStart)
 
+  // OpenAIライブ文字起こしフック
+  const liveTranscription = useLiveTranscription(onChatProcessStart)
+
   // ----- 現在のモードに基づいて適切なフックを選択 -----
-  const currentHook =
-    speechRecognitionMode === 'browser'
-      ? realtimeAPIMode
-        ? realtimeAPI
+  const currentHook = realtimeAPIMode
+    ? realtimeAPI
+    : speechRecognitionMode === 'whisper'
+      ? whisperSpeech
+      : speechRecognitionMode === 'live-transcription'
+        ? liveTranscription
         : browserSpeech
-      : whisperSpeech
 
   // ----- currentHookの関数参照をrefで保持（依存配列からcurrentHookを除去するため） -----
   const currentHookRef = useRef({
@@ -55,6 +70,9 @@ export function useVoiceRecognition({
         ? (currentHook as any).checkRecognitionActive
         : null,
   })
+  const voiceInputShortcutRef = useRef(voiceInputShortcut)
+  const activeVoiceShortcutRef = useRef<string | null>(null)
+  const shortcutStartPromiseRef = useRef<Promise<boolean> | null>(null)
 
   // ref更新はeffectで（render中アクセス禁止lint対策）
   useIsomorphicLayoutEffect(() => {
@@ -71,6 +89,10 @@ export function useVoiceRecognition({
     }
   }, [currentHook])
 
+  useIsomorphicLayoutEffect(() => {
+    voiceInputShortcutRef.current = voiceInputShortcut
+  }, [voiceInputShortcut])
+
   // ----- 音声停止 -----
   const handleStopSpeaking = useCallback(() => {
     // isSpeaking を false に設定し、発話キューを完全に停止
@@ -84,7 +106,7 @@ export function useVoiceRecognition({
       settingsStore.getState().speechRecognitionMode === 'browser' &&
       !homeStore.getState().chatProcessing
     ) {
-      console.log('🔄 ストップボタンが押されました。音声認識を再開します。')
+      logger.log('🔄 ストップボタンが押されました。音声認識を再開します。')
       setTimeout(() => {
         currentHookRef.current.startListening()
       }, 300)
@@ -99,7 +121,7 @@ export function useVoiceRecognition({
       speechRecognitionMode === 'browser' &&
       !homeStore.getState().chatProcessing
     ) {
-      console.log('🔄 AIの発話が完了しました。音声認識を自動的に再開します。')
+      logger.log('🔄 AIの発話が完了しました。音声認識を自動的に再開します。')
       setTimeout(() => {
         currentHookRef.current.startListening()
       }, 300) // マイク起動までに少し遅延を入れる
@@ -116,7 +138,7 @@ export function useVoiceRecognition({
       !homeStore.getState().chatProcessing
     ) {
       // 常時マイク入力モードがONになった場合、自動的にマイク入力を開始
-      console.log(
+      logger.log(
         '🎤 常時マイク入力モードがONになりました。音声認識を開始します。'
       )
       currentHookRef.current.startListening()
@@ -140,7 +162,7 @@ export function useVoiceRecognition({
 
       // マイクがOFFで、発話中でも処理中でもない場合は再開
       if (!isListening && !isSpeaking && !chatProcessing) {
-        console.log(
+        logger.log(
           '🔄 常時マイク入力モード: マイクがOFFになっていたため、自動で再開します。'
         )
         currentHookRef.current.startListening()
@@ -155,7 +177,7 @@ export function useVoiceRecognition({
         checkRecognitionActive
       ) {
         if (!checkRecognitionActive()) {
-          console.log(
+          logger.log(
             '🔄 常時マイク入力モード: 音声認識が非アクティブのため再起動します。'
           )
           currentHookRef.current.stopListening()
@@ -198,7 +220,7 @@ export function useVoiceRecognition({
       !homeStore.getState().chatProcessing
     ) {
       const delayedStart = async () => {
-        console.log('🎤 コンポーネントマウント時に音声認識を自動的に開始します')
+        logger.log('🎤 コンポーネントマウント時に音声認識を自動的に開始します')
         // コンポーネントマウント時に少し遅延させてから開始
         await new Promise((resolve) => setTimeout(resolve, 1000))
         if (
@@ -225,16 +247,65 @@ export function useVoiceRecognition({
   // ----- キーボードショートカットの設定 -----
   useEffect(() => {
     const handleKeyDown = async (e: KeyboardEvent) => {
-      if (e.key === 'Alt' && !currentHookRef.current.isListening) {
-        // Alt キーを押した時の処理
+      const shortcut = voiceInputShortcutRef.current
+      if (
+        !e.repeat &&
+        !activeVoiceShortcutRef.current &&
+        matchesKeyboardShortcut(e, shortcut) &&
+        !currentHookRef.current.isListening
+      ) {
+        if (
+          isEditableKeyboardTarget(e.target) &&
+          !hasCommandModifier(shortcut) &&
+          e.key.length === 1
+        ) {
+          return
+        }
+
+        e.preventDefault()
+        activeVoiceShortcutRef.current = shortcut
         handleStopSpeaking()
-        await currentHookRef.current.startListening()
+        const startPromise = Promise.resolve(
+          currentHookRef.current.startListening()
+        )
+          .then(() => true)
+          .catch((error) => {
+            logger.error('Failed to start voice input from shortcut:', error)
+            return false
+          })
+        shortcutStartPromiseRef.current = startPromise
+        const started = await startPromise
+        if (!started) {
+          activeVoiceShortcutRef.current = null
+          shortcutStartPromiseRef.current = null
+        }
       }
     }
 
     const handleKeyUp = async (e: KeyboardEvent) => {
-      if (e.key === 'Alt' && currentHookRef.current.isListening) {
-        // Alt キーを離した時の処理
+      const activeShortcut =
+        activeVoiceShortcutRef.current ?? voiceInputShortcutRef.current
+      if (
+        isKeyboardShortcutRelease(e, activeShortcut) &&
+        (activeVoiceShortcutRef.current || currentHookRef.current.isListening)
+      ) {
+        if (
+          !activeVoiceShortcutRef.current &&
+          isEditableKeyboardTarget(e.target) &&
+          !hasCommandModifier(activeShortcut) &&
+          e.key.length === 1
+        ) {
+          return
+        }
+
+        e.preventDefault()
+        activeVoiceShortcutRef.current = null
+
+        const started = await (shortcutStartPromiseRef.current ??
+          Promise.resolve(currentHookRef.current.isListening))
+        shortcutStartPromiseRef.current = null
+        if (!started) return
+
         // マイクボタンと同じ動作をさせるため、toggleListeningを使用せず
         // stopListeningを直接呼び出し、テキストが存在する場合は送信する
 
@@ -244,8 +315,13 @@ export function useVoiceRecognition({
         // 先に音声認識を停止
         await currentHookRef.current.stopListening()
 
-        // stopListening完了後にメッセージを送信
-        if (message) {
+        const settings = settingsStore.getState()
+        const isLiveTranscription =
+          !settings.realtimeAPIMode &&
+          settings.speechRecognitionMode === 'live-transcription'
+
+        // ライブ文字起こしはstopListening内で確定結果を送信する。
+        if (message && !isLiveTranscription) {
           // chatProcessing を true に設定
           homeStore.setState({ chatProcessing: true })
           // メッセージを空にする
@@ -264,6 +340,8 @@ export function useVoiceRecognition({
     return () => {
       window.removeEventListener('keydown', handleKeyDown)
       window.removeEventListener('keyup', handleKeyUp)
+      activeVoiceShortcutRef.current = null
+      shortcutStartPromiseRef.current = null
     }
   }, [handleStopSpeaking, onChatProcessStart])
 

@@ -1,6 +1,10 @@
+import { logger } from '@/lib/logger'
 import { NextApiRequest, NextApiResponse } from 'next'
 import { handleCustomApi } from '@/lib/api-services/customApi'
 import { pipeResponse } from '@/utils/pipeResponse'
+import { withAccessPolicy } from '@/lib/accessPolicy/withAccessPolicy'
+import type { PolicyGate } from '@/lib/accessPolicy/withAccessPolicy'
+import { routePolicies } from '@/lib/accessPolicy/routePolicies'
 
 export const config = {
   api: {
@@ -10,17 +14,11 @@ export const config = {
   },
 }
 
-export default async function handler(
+async function handler(
   req: NextApiRequest,
-  res: NextApiResponse
+  res: NextApiResponse,
+  gate: PolicyGate
 ) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({
-      error: 'Method Not Allowed',
-      errorCode: 'METHOD_NOT_ALLOWED',
-    })
-  }
-
   const {
     messages,
     stream,
@@ -30,6 +28,17 @@ export default async function handler(
     customApiIncludeMimeType = false,
     threadId,
   } = req.body
+
+  // env優先の解決順（他ルートと逆方向）のため dynamic 扱い（設計§4.1）
+  const usesServerSecret = Boolean(
+    process.env.CUSTOM_API_URL ||
+    process.env.CUSTOM_API_HEADERS ||
+    process.env.CUSTOM_API_BODY
+  )
+
+  if (!gate.guardServerSecret(usesServerSecret)) {
+    return
+  }
 
   // サーバーサイド環境変数を優先（秘匿設定）
   const apiUrl = process.env.CUSTOM_API_URL || customApiUrl
@@ -44,7 +53,7 @@ export default async function handler(
       const server = JSON.parse(serverHeaders)
       mergedHeaders = JSON.stringify({ ...front, ...server })
     } catch (e) {
-      console.warn('Failed to parse/merge custom API headers:', e)
+      logger.warn('Failed to parse/merge custom API headers:', e)
       mergedHeaders = serverHeaders
     }
   }
@@ -59,7 +68,7 @@ export default async function handler(
       const server = JSON.parse(serverBody)
       mergedBody = JSON.stringify({ ...front, ...server })
     } catch (e) {
-      console.warn('Failed to parse/merge custom API body:', e)
+      logger.warn('Failed to parse/merge custom API body:', e)
       mergedBody = serverBody
     }
   }
@@ -71,7 +80,7 @@ export default async function handler(
       bodyObj.threadId = threadId
       mergedBody = JSON.stringify(bodyObj)
     } catch (e) {
-      console.warn('Failed to inject threadId into mergedBody:', e)
+      logger.warn('Failed to inject threadId into mergedBody:', e)
     }
   }
 
@@ -87,7 +96,7 @@ export default async function handler(
 
     return pipeResponse(response, res)
   } catch (error) {
-    console.error('Error in Custom API call:', error)
+    logger.error('Error in Custom API call:', error)
 
     if (error instanceof Response) {
       return pipeResponse(error, res)
@@ -110,3 +119,5 @@ export default async function handler(
     })
   }
 }
+
+export default withAccessPolicy(routePolicies['/api/ai/custom'], handler)

@@ -1,10 +1,12 @@
+import { logger } from '@/lib/logger'
 import React, { useCallback, useRef, useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import homeStore from '@/features/stores/home'
 import menuStore from '@/features/stores/menu'
-import settingsStore from '@/features/stores/settings'
+import settingsStore, { type ChatLogMode } from '@/features/stores/settings'
 import slideStore from '@/features/stores/slide'
+import presentationStore from '@/features/stores/presentation'
 import { AssistantText } from './assistantText'
 import { ChatLog } from './chatLog'
 import { IconButton } from './iconButton'
@@ -16,6 +18,12 @@ import { isMultiModalAvailable } from '@/features/constants/aiModels'
 import { AIService } from '@/features/constants/settings'
 import { getLatestAssistantMessage } from '@/utils/assistantMessageUtils'
 import { useKioskMode } from '@/hooks/useKioskMode'
+import {
+  DEFAULT_SETTINGS_TOGGLE_SHORTCUT,
+  hasCommandModifier,
+  isEditableKeyboardTarget,
+  matchesKeyboardShortcut,
+} from '@/utils/keyboardShortcut'
 
 // モバイルデバイス検出用のカスタムフック
 const useIsMobile = () => {
@@ -50,12 +58,17 @@ export const Menu = () => {
   const gameCommentaryPlaying = settingsStore((s) => s.gameCommentaryPlaying)
   const slideMode = settingsStore((s) => s.slideMode)
   const slideVisible = menuStore((s) => s.slideVisible)
+  const thumbnailVisible = menuStore((s) => s.thumbnailVisible)
+  const presentationDocument = presentationStore((s) => s.document)
   const chatLog = homeStore((s) => s.chatLog)
   const showWebcam = menuStore((s) => s.showWebcam)
   const showControlPanel = settingsStore((s) => s.showControlPanel)
   const showCapture = menuStore((s) => s.showCapture)
   const slidePlaying = slideStore((s) => s.isPlaying)
   const showAssistantText = settingsStore((s) => s.showAssistantText)
+  const settingsToggleShortcut =
+    settingsStore((s) => s.settingsToggleShortcut) ||
+    DEFAULT_SETTINGS_TOGGLE_SHORTCUT
 
   // デモ端末モード関連
   const { isKioskMode, isTemporaryUnlocked, canAccessSettings } = useKioskMode()
@@ -73,15 +86,12 @@ export const Menu = () => {
     }
   }, [canAccessSettings])
   // 会話ログ表示モード
+  const chatLogMode = settingsStore((s) => s.chatLogMode)
   const CHAT_LOG_MODE = {
-    HIDDEN: 0, // 非表示
-    ASSISTANT: 1, // アシスタントテキスト
-    CHAT_LOG: 2, // 会話ログ
-  } as const
-
-  const [chatLogMode, setChatLogMode] = useState<number>(
-    CHAT_LOG_MODE.ASSISTANT
-  )
+    HIDDEN: 'hidden',
+    ASSISTANT: 'assistant',
+    CHAT_LOG: 'chat-log',
+  } as const satisfies Record<string, ChatLogMode>
   const [showToolMenu, setShowToolMenu] = useState(false)
   const [showPermissionModal, setShowPermissionModal] = useState(false)
   const imageFileInputRef = useRef<HTMLInputElement>(null)
@@ -127,12 +137,39 @@ export const Menu = () => {
       .then((response) => response.text())
       .then((text) => setMarkdownContent(text))
       .catch((error) =>
-        console.error('Failed to fetch markdown content:', error)
+        logger.error('Failed to fetch markdown content:', error)
       )
   }, [selectedSlideDocs])
 
   // アシスタントメッセージ
   const latestAssistantMessage = getLatestAssistantMessage(chatLog)
+
+  // オープニング／カーテンコールではPresentationを隠す。スライドを隠しただけで
+  // 古い回答が再表示されないよう、新しく届いた回答だけを表示対象にする。
+  useEffect(
+    () =>
+      homeStore.subscribe((state, previousState) => {
+        if (state.chatLog.length <= previousState.chatLog.length) return
+        if (
+          state.chatLog.at(-1)?.role === 'assistant' &&
+          slideMode &&
+          !slideVisible &&
+          presentationDocument
+        ) {
+          if (chatLogMode === CHAT_LOG_MODE.HIDDEN) {
+            settingsStore.setState({ chatLogMode: CHAT_LOG_MODE.ASSISTANT })
+          }
+        }
+      }),
+    [
+      CHAT_LOG_MODE.ASSISTANT,
+      CHAT_LOG_MODE.HIDDEN,
+      chatLogMode,
+      presentationDocument,
+      slideMode,
+      slideVisible,
+    ]
+  )
 
   const handleChangeVrmFile = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -159,9 +196,20 @@ export const Menu = () => {
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key === '.') {
+      if (
+        !event.repeat &&
+        matchesKeyboardShortcut(event, settingsToggleShortcut)
+      ) {
         // デモ端末モードで設定アクセス不可の場合はショートカットを無効化
         if (!canAccessSettings) return
+        if (
+          isEditableKeyboardTarget(event.target) &&
+          !hasCommandModifier(settingsToggleShortcut) &&
+          event.key.length === 1
+        ) {
+          return
+        }
+        event.preventDefault()
         setShowSettings((prevState) => !prevState)
       }
     }
@@ -171,10 +219,10 @@ export const Menu = () => {
     return () => {
       window.removeEventListener('keydown', handleKeyDown)
     }
-  }, [canAccessSettings])
+  }, [canAccessSettings, settingsToggleShortcut])
 
   useEffect(() => {
-    console.log('onChangeWebcamStatus')
+    logger.log('onChangeWebcamStatus')
     homeStore.setState({ webcamStatus: showWebcam })
 
     if (showWebcam) {
@@ -192,7 +240,7 @@ export const Menu = () => {
   }, [showWebcam])
 
   useEffect(() => {
-    console.log('onChangeCaptureStatus')
+    logger.log('onChangeCaptureStatus')
     homeStore.setState({ captureStatus: showCapture })
   }, [showCapture])
 
@@ -250,7 +298,7 @@ export const Menu = () => {
 
       <div className="absolute z-15 m-3 sm:m-6">
         <div
-          className="theme-surface-popover relative mb-10 grid grid-flow-col gap-1 rounded-xl border p-1 shadow-md backdrop-blur-md"
+          className="aurora-glass-dock relative mb-10 grid grid-flow-col gap-0.5 rounded-[18px] p-1.5"
           style={{ width: 'max-content' }}
         >
           {effectiveShowControlPanel && (
@@ -281,11 +329,20 @@ export const Menu = () => {
                   label={t('ChatLog')}
                   labelClassName="hidden sm:block"
                   isProcessing={false}
-                  onClick={() => setChatLogMode((prev) => (prev + 1) % 3)}
+                  onClick={() => {
+                    const nextMode: Record<ChatLogMode, ChatLogMode> = {
+                      assistant: CHAT_LOG_MODE.CHAT_LOG,
+                      'chat-log': CHAT_LOG_MODE.HIDDEN,
+                      hidden: CHAT_LOG_MODE.ASSISTANT,
+                    }
+                    settingsStore.setState({
+                      chatLogMode: nextMode[chatLogMode],
+                    })
+                  }}
                   aria-label={t('ChatLog')}
-                  backgroundColor="bg-transparent hover:bg-primary/10 active:bg-primary/15 disabled:bg-transparent"
+                  backgroundColor="bg-transparent hover:bg-black/5 active:bg-black/10 disabled:bg-transparent"
                   iconColor="text-text1"
-                  className="transition-colors duration-200"
+                  className="!rounded-[13px] transition-colors duration-200"
                 />
               </div>
               <div className="order-3">
@@ -298,14 +355,14 @@ export const Menu = () => {
                   aria-label={t('Tools')}
                   aria-expanded={showToolMenu}
                   data-testid="main-tools-toggle-button"
-                  backgroundColor="bg-transparent hover:bg-primary/10 active:bg-primary/15 disabled:bg-transparent"
+                  backgroundColor="bg-transparent hover:bg-black/5 active:bg-black/10 disabled:bg-transparent"
                   iconColor="text-text1"
-                  className="transition-colors duration-200"
+                  className="!rounded-[13px] transition-colors duration-200"
                 />
               </div>
               {showToolMenu && (
                 <div
-                  className="theme-surface-popover absolute left-0 top-full z-20 mt-2 grid w-max min-w-[180px] max-w-[calc(100vw-24px)] gap-2 rounded-lg border p-2 shadow-xl backdrop-blur sm:min-w-[220px]"
+                  className="aurora-glass-popover absolute left-0 top-full z-20 mt-2 grid w-max min-w-[180px] max-w-[calc(100vw-24px)] gap-0.5 rounded-[18px] p-2 sm:min-w-[220px]"
                   data-testid="main-tools-menu"
                 >
                   <ToolMenuButton
@@ -399,7 +456,10 @@ export const Menu = () => {
                       label={slideVisible ? t('HideSlide') : t('ShowSlide')}
                       active={slideVisible}
                       onClick={() =>
-                        menuStore.setState({ slideVisible: !slideVisible })
+                        menuStore.setState({
+                          slideVisible: !slideVisible,
+                          thumbnailVisible: false,
+                        })
                       }
                       disabled={slidePlaying}
                       aria-pressed={slideVisible}
@@ -413,7 +473,14 @@ export const Menu = () => {
         </div>
       </div>
       <div className="relative">
-        {slideMode && slideVisible && <Slides markdown={markdownContent} />}
+        {slideMode &&
+          (slideVisible || thumbnailVisible || presentationDocument) && (
+            <Slides
+              markdown={markdownContent}
+              visible={slideVisible || thumbnailVisible}
+              thumbnailVisible={thumbnailVisible}
+            />
+          )}
       </div>
       {chatLogMode === CHAT_LOG_MODE.CHAT_LOG && <ChatLog />}
       {showSettings && canAccessSettings && (
@@ -449,26 +516,6 @@ export const Menu = () => {
         }}
         onChange={handleChangeVrmFile}
       />
-      <input
-        type="file"
-        className="hidden"
-        accept="image/*"
-        ref={(bgFileInput) => {
-          if (!bgFileInput) {
-            menuStore.setState({ bgFileInput: null })
-            return
-          }
-
-          menuStore.setState({ bgFileInput })
-        }}
-        onChange={(e) => {
-          const file = e.target.files?.[0]
-          if (file) {
-            const imageUrl = URL.createObjectURL(file)
-            homeStore.setState({ backgroundImageUrl: imageUrl })
-          }
-        }}
-      />
     </>
   )
 }
@@ -494,9 +541,9 @@ const ToolMenuButton = ({
     backgroundColor={
       active
         ? 'bg-primary hover:bg-primary-hover active:bg-primary-press disabled:bg-primary-disabled disabled:cursor-not-allowed'
-        : 'theme-surface-control border disabled:cursor-not-allowed disabled:opacity-50'
+        : 'bg-transparent hover:bg-black/5 active:bg-black/10 disabled:cursor-not-allowed disabled:opacity-50'
     }
     iconColor={active ? 'text-theme' : 'text-text1'}
-    className={`w-full !justify-start rounded-lg ${rest.className ?? ''}`}
+    className={`w-full !justify-start !rounded-xl ${rest.className ?? ''}`}
   />
 )

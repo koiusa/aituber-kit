@@ -7,13 +7,9 @@ import {
   getClientIdFromRequest,
   normalizeImage,
   normalizeMessages,
-  requireApiKey,
-  sendMethodNotAllowed,
 } from '@/features/api/http'
-import {
-  isRestrictedMode,
-  createRestrictedModeErrorResponse,
-} from '@/utils/restrictedMode'
+import { withAccessPolicy } from '@/lib/accessPolicy/withAccessPolicy'
+import { routePolicies } from '@/lib/accessPolicy/routePolicies'
 
 export const config = {
   api: {
@@ -24,16 +20,6 @@ export const config = {
 }
 
 const handler = (req: NextApiRequest, res: NextApiResponse) => {
-  if (isRestrictedMode()) {
-    return res.status(403).json(createRestrictedModeErrorResponse('v1/speak'))
-  }
-
-  if (req.method !== 'POST') {
-    return sendMethodNotAllowed(res)
-  }
-
-  if (!requireApiKey(req, res)) return
-
   const clientId = getClientIdFromRequest(req, req.body?.clientId)
   if (!clientId) {
     return res.status(400).json({ error: 'Client ID is required' })
@@ -47,6 +33,20 @@ const handler = (req: NextApiRequest, res: NextApiResponse) => {
   if (messages.length === 0) {
     return res.status(400).json({ error: 'Text or messages are required' })
   }
+
+  const speechSessionIdInput = req.body?.speechSessionId
+  if (
+    speechSessionIdInput !== undefined &&
+    (typeof speechSessionIdInput !== 'string' ||
+      speechSessionIdInput.trim().length === 0 ||
+      speechSessionIdInput.trim().length > 200)
+  ) {
+    return res.status(400).json({ error: 'Invalid speech session ID' })
+  }
+  const speechSessionId =
+    typeof speechSessionIdInput === 'string'
+      ? speechSessionIdInput.trim()
+      : undefined
 
   const imageResult = normalizeImage(req.body?.image)
   if (!imageResult.ok) {
@@ -65,6 +65,7 @@ const handler = (req: NextApiRequest, res: NextApiResponse) => {
     image: imageResult.image,
     emotion:
       typeof req.body?.emotion === 'string' ? req.body.emotion : undefined,
+    speechSessionId,
     priority: req.body?.priority === 'high' ? 'high' : 'normal',
     interrupt,
     source: 'v1',
@@ -78,4 +79,4 @@ const handler = (req: NextApiRequest, res: NextApiResponse) => {
   })
 }
 
-export default handler
+export default withAccessPolicy(routePolicies['/api/v1/speak'], handler)
