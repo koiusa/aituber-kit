@@ -6,7 +6,12 @@ import {
   isReasoningModel,
   getReasoningEfforts,
 } from '../constants/aiModels'
-import type { AIService, AIVoice, ReasoningEffort } from '../constants/settings'
+import type {
+  AIService,
+  AIVoice,
+  Language,
+  ReasoningEffort,
+} from '../constants/settings'
 
 export interface CrossStoreEffect {
   store: 'menu' | 'home' | 'slide'
@@ -39,10 +44,64 @@ const JA_ONLY_VOICES: AIVoice[] = [
   'koeiromap',
   'aivis_speech',
   'aivis_cloud_api',
-  'gsvitts',
 ]
 
+// GPT-SoVITS（GSVI TTS）は日本語以外に中国語・英語・韓国語も話せる
+const GSVI_LANGUAGES: Language[] = ['ja', 'zh-CN', 'zh-TW', 'en', 'ko']
+
+const isVoiceUnsupported = (voice: AIVoice, language: Language) =>
+  (language !== 'ja' && JA_ONLY_VOICES.includes(voice)) ||
+  (voice === 'gsvitts' && !GSVI_LANGUAGES.includes(language))
+
 export const exclusionRules: ExclusionRule[] = [
+  {
+    id: 'live-incompatible-mode',
+    description:
+      '別の入力・自動発話モードやAIサービスへ切り替えたらGPT-Liveを停止',
+    trigger: (incoming, merged) =>
+      merged.liveMode &&
+      ((wasSet(incoming, 'selectAIService') &&
+        merged.selectAIService !== 'openai') ||
+        (wasSet(incoming, 'speechRecognitionMode') &&
+          merged.speechRecognitionMode !== 'browser') ||
+        (
+          [
+            'realtimeAPIMode',
+            'audioMode',
+            'externalLinkageMode',
+            'slideMode',
+            'youtubeMode',
+            'idleModeEnabled',
+            'presenceDetectionEnabled',
+            'gameCommentaryEnabled',
+            'conversationContinuityMode',
+            'messageReceiverEnabled',
+          ] as const
+        ).some((key) => incoming[key] === true)),
+    apply: () => ({ liveMode: false }),
+  },
+  {
+    id: 'live-on',
+    description: 'GPT-Liveのマイクと発話を他の入力・自動発話モードから分離',
+    trigger: (_incoming, merged) => merged.liveMode === true,
+    apply: () => ({
+      selectAIService: 'openai',
+      realtimeAPIMode: false,
+      audioMode: false,
+      externalLinkageMode: false,
+      slideMode: false,
+      youtubeMode: false,
+      idleModeEnabled: false,
+      presenceDetectionEnabled: false,
+      gameCommentaryEnabled: false,
+      gameCommentaryPlaying: false,
+      conversationContinuityMode: false,
+      messageReceiverEnabled: false,
+      continuousMicListeningMode: false,
+      speechRecognitionMode: 'browser',
+    }),
+    crossStoreEffects: () => [{ store: 'slide', state: { isPlaying: false } }],
+  },
   // Rule 1: externalLinkageMode ON
   {
     id: 'externalLinkage-on',
@@ -218,14 +277,14 @@ export const exclusionRules: ExclusionRule[] = [
     }),
   },
 
-  // Rule 11: 言語が非日本語 + 日本語専用Voice
+  // Rule 11: 言語が非日本語 + 日本語専用Voice（GSVIは対応言語以外）
   {
     id: 'language-nonJa-jaVoice',
-    description: '非日本語で日本語専用Voice選択時にgoogle TTSに変更',
+    description:
+      '非日本語で日本語専用Voice（GSVIは対応言語以外）選択時にgoogle TTSに変更',
     trigger: (incoming, merged) =>
       (wasSet(incoming, 'selectLanguage') || wasSet(incoming, 'selectVoice')) &&
-      merged.selectLanguage !== 'ja' &&
-      JA_ONLY_VOICES.includes(merged.selectVoice),
+      isVoiceUnsupported(merged.selectVoice, merged.selectLanguage),
     apply: () => ({
       selectVoice: 'google' as const,
     }),

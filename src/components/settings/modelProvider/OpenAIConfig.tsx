@@ -1,3 +1,5 @@
+import { isDemoMode } from '@/utils/demoMode'
+import { LiveConfig } from './LiveConfig'
 import { useTranslation } from 'react-i18next'
 import { useCallback } from 'react'
 import settingsStore from '@/features/stores/settings'
@@ -53,6 +55,7 @@ export const OpenAIConfig = ({
   updateMultiModalModeForModel,
 }: OpenAIConfigProps) => {
   const { t } = useTranslation()
+  const liveMode = settingsStore((s) => s.liveMode)
 
   const handleRealtimeAPIModeChange = useCallback((newMode: boolean) => {
     settingsStore.setState({ realtimeAPIMode: newMode })
@@ -100,29 +103,35 @@ export const OpenAIConfig = ({
         linkLabel="OpenAI Platform"
       />
 
-      <div className="my-6">
-        <div className="my-4 text-xl font-bold">{t('RealtimeAPIMode')}</div>
-        <div className="my-2">
-          <ToggleSwitch
-            enabled={realtimeAPIMode}
-            onChange={handleRealtimeAPIModeChange}
-            testId="realtime-api-mode-toggle"
-          />
-        </div>
-      </div>
+      {!isDemoMode() && (
+        <>
+          <LiveConfig />
 
-      <div className="my-6">
-        <div className="my-4 text-xl font-bold">{t('AudioMode')}</div>
-        <div className="my-2">
-          <ToggleSwitch
-            enabled={audioMode}
-            onChange={handleAudioModeChange}
-            testId="audio-mode-toggle"
-          />
-        </div>
-      </div>
+          <div className="my-6">
+            <div className="my-4 text-xl font-bold">{t('RealtimeAPIMode')}</div>
+            <div className="my-2">
+              <ToggleSwitch
+                enabled={realtimeAPIMode}
+                onChange={handleRealtimeAPIModeChange}
+                testId="realtime-api-mode-toggle"
+              />
+            </div>
+          </div>
 
-      {realtimeAPIMode && (
+          <div className="my-6">
+            <div className="my-4 text-xl font-bold">{t('AudioMode')}</div>
+            <div className="my-2">
+              <ToggleSwitch
+                enabled={audioMode}
+                onChange={handleAudioModeChange}
+                testId="audio-mode-toggle"
+              />
+            </div>
+          </div>
+        </>
+      )}
+
+      {!isDemoMode() && realtimeAPIMode && (
         <>
           <div className="my-4 font-bold">
             {t('RealtimeAPIModeContentType')}
@@ -188,7 +197,7 @@ export const OpenAIConfig = ({
         </>
       )}
 
-      {audioMode && (
+      {!isDemoMode() && audioMode && (
         <>
           <div className="my-4 font-bold">
             {t('RealtimeAPIModeContentType')}
@@ -242,7 +251,7 @@ export const OpenAIConfig = ({
         </>
       )}
 
-      {!realtimeAPIMode && !audioMode && (
+      {!liveMode && !realtimeAPIMode && !audioMode && (
         <>
           <ModelSelector
             aiService="openai"

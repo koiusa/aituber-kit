@@ -14,6 +14,7 @@ import type { RoutePolicy } from './types'
 
 export const routePolicies = {
   '/api/ai/audio': {
+    demoBehavior: 'deny',
     path: '/api/ai/audio',
     featureName: 'ai/audio',
     methods: ['POST'],
@@ -31,7 +32,27 @@ export const routePolicies = {
     restrictedBehavior: 'none',
     waf: { embedAllowed: true },
   },
+  '/api/ai/live-session': {
+    demoBehavior: 'deny',
+    path: '/api/ai/live-session',
+    featureName: 'ai/live-session',
+    methods: ['POST'],
+    resources: ['server-secret'],
+    secret: {
+      kind: 'pairs',
+      pairs: [
+        {
+          source: 'body',
+          key: 'apiKey',
+          envVars: ['OPENAI_KEY', 'OPENAI_API_KEY'],
+        },
+      ],
+    },
+    restrictedBehavior: 'none',
+    waf: { embedAllowed: true },
+  },
   '/api/ai/realtime-client-secret': {
+    demoBehavior: 'deny-realtime-conversation',
     path: '/api/ai/realtime-client-secret',
     featureName: 'ai/realtime-client-secret',
     methods: ['POST'],
@@ -115,8 +136,8 @@ export const routePolicies = {
     featureName: 'convertSlide',
     restrictedFeatureName: 'convert-slide',
     methods: ['POST'],
-    resources: ['fs-write', 'client-proxy'],
-    secret: { kind: 'none' },
+    resources: ['fs-write', 'server-secret'],
+    secret: { kind: 'dynamic' },
     restrictedBehavior: 'deny',
   },
   '/api/delete-image': {
@@ -269,6 +290,7 @@ export const routePolicies = {
     restrictedBehavior: 'deny',
   },
   '/api/openAITTS': {
+    demoBehavior: 'deny',
     path: '/api/openAITTS',
     featureName: 'openAITTS',
     methods: ['POST'],

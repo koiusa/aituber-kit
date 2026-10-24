@@ -1,3 +1,4 @@
+import { isDemoMode } from '@/utils/demoMode'
 import { logger } from '@/lib/logger'
 import { useTranslation } from 'react-i18next'
 import i18n from 'i18next'
@@ -183,6 +184,10 @@ const QuickStart = () => {
         return modelState.deepseekKey
       case 'openrouter':
         return modelState.openrouterKey
+      case 'orcarouter':
+        return modelState.orcarouterKey
+      case 'apiroute':
+        return modelState.apirouteKey
       case 'dify':
         return modelState.difyKey
       default:
@@ -227,6 +232,12 @@ const QuickStart = () => {
         break
       case 'openrouter':
         settingsStore.setState({ openrouterKey: value })
+        break
+      case 'orcarouter':
+        settingsStore.setState({ orcarouterKey: value })
+        break
+      case 'apiroute':
+        settingsStore.setState({ apirouteKey: value })
         break
       case 'dify':
         settingsStore.setState({ difyKey: value })
@@ -308,6 +319,32 @@ const QuickStart = () => {
                 value={modelState.selectAIModel}
                 onChange={(e) => handleModelChange(e.target.value)}
                 placeholder="openai/gpt-4o"
+              />
+            </LabeledField>
+          </div>
+        )
+      case 'orcarouter':
+        return (
+          <div className={quickGridClassName}>
+            <LabeledField label={t('SelectModel')}>
+              <input
+                className={inputClassName}
+                value={modelState.selectAIModel}
+                onChange={(e) => handleModelChange(e.target.value)}
+                placeholder="openai/gpt-4o-mini"
+              />
+            </LabeledField>
+          </div>
+        )
+      case 'apiroute':
+        return (
+          <div className={quickGridClassName}>
+            <LabeledField label={t('SelectModel')}>
+              <input
+                className={inputClassName}
+                value={modelState.selectAIModel}
+                onChange={(e) => handleModelChange(e.target.value)}
+                placeholder="gpt-6.1-sol"
               />
             </LabeledField>
           </div>
@@ -916,7 +953,9 @@ const QuickStart = () => {
             <option value="gsvitts">{t('UsingGSVITTS')}</option>
             <option value="elevenlabs">{t('UsingElevenLabs')}</option>
             <option value="cartesia">{t('UsingCartesia')}</option>
-            <option value="openai">{t('UsingOpenAITTS')}</option>
+            {!isDemoMode() && (
+              <option value="openai">{t('UsingOpenAITTS')}</option>
+            )}
             <option value="azure">{t('UsingAzureTTS')}</option>
           </select>
         </LabeledField>

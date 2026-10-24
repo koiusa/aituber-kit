@@ -1,9 +1,9 @@
 {
   "Type": "Live2D Expression",
-  "FadeInTime": 0.75,
+  "FadeInTime": 0.25,
   "Parameters": [
     {
-      "Id": "ParamHairpinChange",
+      "Id": "ParamEyeRSmile",
       "Value": 1,
       "Blend": "Add"
     },
@@ -23,13 +23,8 @@
       "Blend": "Add"
     },
     {
-      "Id": "ParamEyeRSmile",
+      "Id": "ParamHairpinChange",
       "Value": 1,
-      "Blend": "Add"
-    },
-    {
-      "Id": "ParamMouthForm",
-      "Value": 0.6,
       "Blend": "Add"
     }
   ]

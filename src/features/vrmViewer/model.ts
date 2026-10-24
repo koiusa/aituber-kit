@@ -23,6 +23,7 @@ import type { PlaybackObserver } from '../messages/characterRenderer'
  * 3Dキャラクターを管理するクラス
  */
 export class Model {
+  public externalLipSyncVolume: number | null = null
   public vrm?: VRM | null
   public mixer?: THREE.AnimationMixer
   public emoteController?: EmoteController
@@ -211,7 +212,7 @@ export class Model {
   public update(delta: number): void {
     if (this._lipSync) {
       const { volume } = this._lipSync.update()
-      this.emoteController?.lipSync('aa', volume)
+      this.emoteController?.lipSync('aa', this.externalLipSyncVolume ?? volume)
     }
 
     this.emoteController?.update(delta)

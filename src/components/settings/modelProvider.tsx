@@ -1,3 +1,4 @@
+import { LIVE_HISTORY_MAX_MESSAGES } from '@/features/live/history'
 import { useTranslation } from 'react-i18next'
 import { Listbox } from '@headlessui/react'
 import settingsStore from '@/features/stores/settings'
@@ -9,6 +10,8 @@ import { OpenAIConfig } from './modelProvider/OpenAIConfig'
 import { GoogleConfig } from './modelProvider/GoogleConfig'
 import { AzureConfig } from './modelProvider/AzureConfig'
 import { OpenRouterConfig } from './modelProvider/OpenRouterConfig'
+import { OrcaRouterConfig } from './modelProvider/OrcaRouterConfig'
+import { APIRouteConfig } from './modelProvider/APIRouteConfig'
 import { MultiModalToggle } from './modelProvider/MultiModalToggle'
 import { useModelProviderState } from './modelProvider/hooks/useModelProviderState'
 import { useAIServiceHandlers } from './modelProvider/hooks/useAIServiceHandlers'
@@ -23,6 +26,7 @@ import { settingsControlClass } from '@/components/settings/formStyles'
 const ModelProvider = () => {
   const { t } = useTranslation()
   const state = useModelProviderState()
+  const liveMode = settingsStore((s) => s.liveMode)
   const { updateMultiModalModeForModel, handleAIServiceChange } =
     useAIServiceHandlers()
 
@@ -84,6 +88,24 @@ const ModelProvider = () => {
         return (
           <OpenRouterConfig
             openrouterKey={state.openrouterKey}
+            selectAIModel={state.selectAIModel}
+            enableMultiModal={state.enableMultiModal}
+          />
+        )
+
+      case 'orcarouter':
+        return (
+          <OrcaRouterConfig
+            orcarouterKey={state.orcarouterKey}
+            selectAIModel={state.selectAIModel}
+            enableMultiModal={state.enableMultiModal}
+          />
+        )
+
+      case 'apiroute':
+        return (
+          <APIRouteConfig
+            apirouteKey={state.apirouteKey}
             selectAIModel={state.selectAIModel}
             enableMultiModal={state.enableMultiModal}
           />
@@ -391,7 +413,8 @@ const ModelProvider = () => {
 
       {state.selectAIService !== 'dify' && (
         <>
-          {!state.realtimeAPIMode &&
+          {!liveMode &&
+            !state.realtimeAPIMode &&
             !state.audioMode &&
             state.selectAIService !== 'custom-api' && (
               <>
@@ -540,18 +563,30 @@ const ModelProvider = () => {
           <div className="border-t border-gray-300 pt-6 my-6">
             <div className="my-4 text-xl font-bold">{t('MaxPastMessages')}</div>
             <div className="my-2 text-sm whitespace-pre-wrap">
-              {t('ConversationHistoryInfo', { count: state.maxPastMessages })}
+              {t(liveMode ? 'Live.HistoryInfo' : 'ConversationHistoryInfo', {
+                count: liveMode
+                  ? Math.min(state.maxPastMessages, LIVE_HISTORY_MAX_MESSAGES)
+                  : state.maxPastMessages,
+              })}
             </div>
             <div className="my-2">
               <input
                 type="number"
                 min="1"
-                max="9999"
+                max={liveMode ? LIVE_HISTORY_MAX_MESSAGES : 9999}
                 className="px-4 py-2 w-24 bg-white hover:bg-white-hover rounded-lg"
-                value={state.maxPastMessages}
+                value={
+                  liveMode
+                    ? Math.min(state.maxPastMessages, LIVE_HISTORY_MAX_MESSAGES)
+                    : state.maxPastMessages
+                }
                 onChange={(e) => {
                   const value = parseInt(e.target.value)
-                  if (!Number.isNaN(value) && value >= 1 && value <= 9999) {
+                  if (
+                    !Number.isNaN(value) &&
+                    value >= 1 &&
+                    value <= (liveMode ? LIVE_HISTORY_MAX_MESSAGES : 9999)
+                  ) {
                     settingsStore.setState({ maxPastMessages: value })
                   }
                 }}

@@ -309,6 +309,32 @@ describe('排他エンジン (computeExclusions)', () => {
 
       expect(corrections.selectVoice).toBeUndefined()
     })
+
+    it('gsvitts（GPT-SoVITS）は中国語・英語・韓国語では変更しない', () => {
+      for (const lang of ['zh-CN', 'zh-TW', 'en', 'ko'] as const) {
+        const prev = createBaseState({
+          selectLanguage: 'ja',
+          selectVoice: 'gsvitts',
+        })
+        const { corrections } = computeExclusions(
+          { selectLanguage: lang },
+          prev
+        )
+
+        expect(corrections.selectVoice).toBeUndefined()
+      }
+    })
+
+    it('gsvitts（GPT-SoVITS）は非対応言語ではgoogle TTSに変更される', () => {
+      const prev = createBaseState({
+        selectLanguage: 'ja',
+        selectVoice: 'gsvitts',
+      })
+      const incoming = { selectLanguage: 'fr' as const }
+      const { corrections } = computeExclusions(incoming, prev)
+
+      expect(corrections.selectVoice).toBe('google')
+    })
   })
 
   describe('Rule 12: google-searchGrounding', () => {
@@ -790,5 +816,35 @@ describe('disabled条件 (computeDisabledConditions)', () => {
 
     expect(conditions.idleModeEnabled).toBe(true)
     expect(conditions.presenceDetectionEnabled).toBe(true)
+  })
+})
+
+describe('GPT-Live exclusions', () => {
+  it('disables competing modes and keeps the ordinary model selection', () => {
+    const prev = createBaseState({
+      realtimeAPIMode: true,
+      youtubeMode: true,
+      idleModeEnabled: true,
+    })
+    const { corrections } = computeExclusions({ liveMode: true }, prev)
+    expect(corrections).toMatchObject({
+      realtimeAPIMode: false,
+      youtubeMode: false,
+      idleModeEnabled: false,
+      continuousMicListeningMode: false,
+    })
+  })
+  it.each([
+    { realtimeAPIMode: true },
+    { audioMode: true },
+    { selectAIService: 'anthropic' },
+    { speechRecognitionMode: 'live-transcription' },
+    { youtubeMode: true },
+  ])('leaves Live when another mode is selected', (incoming) => {
+    const { corrections } = computeExclusions(
+      incoming as Partial<SettingsState>,
+      createBaseState({ liveMode: true })
+    )
+    expect(corrections.liveMode).toBe(false)
   })
 })
