@@ -3,9 +3,9 @@ import * as THREE from 'three'
 export class MouseTracker {
   private _mouse: THREE.Vector2
   private _raycaster: THREE.Raycaster
-  private _camera: THREE.Object3D
+  private _camera: THREE.Camera
 
-  constructor(camera: THREE.Object3D) {
+  constructor(camera: THREE.Camera) {
     this._mouse = new THREE.Vector2()
     this._raycaster = new THREE.Raycaster()
     this._camera = camera

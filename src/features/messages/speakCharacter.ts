@@ -549,6 +549,7 @@ export const testVoice = async (voiceType: AIVoice, customText?: string) => {
     cartesia: 'Cartesiaを使用します',
     openai: 'OpenAI TTSを使用します',
     azure: 'Azure TTSを使用します',
+    voicepeak: 'VOICEPEAKを使用します',
   }
 
   const message = customText || defaultMessages[voiceType]

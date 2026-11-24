@@ -32,18 +32,18 @@ export class Model {
   public poseManager: PoseManager
   public mouseInteraction?: MouseInteraction
   public eventEmitter?: EventEmitter = new EventEmitter()
- 
+
   private _lookAtTargetParent: THREE.Object3D
   private _lipSync?: LipSync
   private _yOffsetQuat = new THREE.Quaternion()
-  private _defaultHipsPosition: THREE.Vector3
-  
+  private _defaultHipsPosition = new THREE.Vector3()
+
   constructor(lookAtTargetParent: THREE.Object3D) {
     this._lookAtTargetParent = lookAtTargetParent
     this._lipSync = new LipSync(new AudioContext(), { forceStart: true })
     this.poseManager = new PoseManager()
   }
-  
+
   public async loadVRM(url: string): Promise<void> {
     const loader = new GLTFLoader()
     loader.register(
@@ -63,9 +63,16 @@ export class Model {
 
     this.emoteController = new EmoteController(vrm, this._lookAtTargetParent)
 
-    this.mouseInteraction = new MouseInteraction(this, this._lookAtTargetParent)
+    // Clicks are hit-tested from the camera; without one (a bare look-at parent) there is nothing to test from.
+    if (this._lookAtTargetParent instanceof THREE.Camera)
+      this.mouseInteraction = new MouseInteraction(
+        this,
+        this._lookAtTargetParent
+      )
     gltf.userData.vrmLookAt.userTarget = this._lookAtTargetParent
-    this._defaultHipsPosition = vrm.humanoid.getNormalizedBoneNode('hips')?.position.clone() || new THREE.Vector3()
+    this._defaultHipsPosition =
+      vrm.humanoid.getNormalizedBoneNode('hips')?.position.clone() ||
+      new THREE.Vector3()
   }
 
   public unLoadVrm() {
@@ -86,7 +93,13 @@ export class Model {
       throw new Error('You have to load VRM first')
     }
 
-    vrm.humanoid.getNormalizedBoneNode('hips')?.position.set(this._defaultHipsPosition.x, this._defaultHipsPosition.y, this._defaultHipsPosition.z)
+    vrm.humanoid
+      .getNormalizedBoneNode('hips')
+      ?.position.set(
+        this._defaultHipsPosition.x,
+        this._defaultHipsPosition.y,
+        this._defaultHipsPosition.z
+      )
     const clip = vrmAnimation.createAnimationClip(vrm)
     const action = mixer.clipAction(clip)
     this.currentAction?.crossFadeTo(action, 0.3, true)
@@ -100,20 +113,25 @@ export class Model {
       throw new Error('You have to load VRM first')
     }
 
-    vrm.humanoid.getNormalizedBoneNode('hips')?.position.set(this._defaultHipsPosition.x, this._defaultHipsPosition.y, this._defaultHipsPosition.z)
+    vrm.humanoid
+      .getNormalizedBoneNode('hips')
+      ?.position.set(
+        this._defaultHipsPosition.x,
+        this._defaultHipsPosition.y,
+        this._defaultHipsPosition.z
+      )
     const clip = vrmAnimation.createAnimationClip(vrm)
     const action = mixer.clipAction(clip)
-     // 再生完了時にデフォルトアニメーションに戻る
-    action.clampWhenFinished = true; // 再生終了後に最後のフレームで停止
-    action.loop = THREE.LoopOnce; // 1回だけ再生
+    // 再生完了時にデフォルトアニメーションに戻る
+    action.clampWhenFinished = true // 再生終了後に最後のフレームで停止
+    action.loop = THREE.LoopOnce // 1回だけ再生
     mixer.addEventListener('finished', () => {
-          this.eventEmitter?.emit('animationFinished')
-        });
+      this.eventEmitter?.emit('animationFinished')
+    })
     this.currentAction?.crossFadeTo(action, 0.3, true)
     action.play()
     this.currentAction = action
   }
-  
 
   /**
    * VRMアニメーションを停止する
@@ -125,7 +143,6 @@ export class Model {
     }
     this.currentAction?.stop()
   }
-
 
   /**
    * 音声を再生し、リップシンクを行う
@@ -232,35 +249,38 @@ export class Model {
     this.vrm?.update(delta)
   }
 
-  public debugview() {  
+  public debugview() {
     const camera = this._lookAtTargetParent as THREE.Camera
     const vrm = this.vrm
     if (!camera || !vrm) return
 
-    const debug = document.createElement("div");
-    debug.style.position = "absolute";
-    debug.style.top = "100px";
-    debug.style.left = "100px";
-    debug.style.color = "white";
-    debug.style.background = "rgba(0,0,0,0.5)";
-    debug.style.padding = "10px";
-    document.body.appendChild(debug);
+    const debug = document.createElement('div')
+    debug.style.position = 'absolute'
+    debug.style.top = '100px'
+    debug.style.left = '100px'
+    debug.style.color = 'white'
+    debug.style.background = 'rgba(0,0,0,0.5)'
+    debug.style.padding = '10px'
+    document.body.appendChild(debug)
 
     debug.innerText =
-      "Camera\n" +
-      camera.position.x.toFixed(2) + ", " +
-      camera.position.y.toFixed(2) + ", " +
+      'Camera\n' +
+      camera.position.x.toFixed(2) +
+      ', ' +
+      camera.position.y.toFixed(2) +
+      ', ' +
       camera.position.z.toFixed(2) +
-
-      "\n\nVRM\n" +
-      vrm.scene.position.x.toFixed(2) + ", " +
-      vrm.scene.position.y.toFixed(2) + ", " +
+      '\n\nVRM\n' +
+      vrm.scene.position.x.toFixed(2) +
+      ', ' +
+      vrm.scene.position.y.toFixed(2) +
+      ', ' +
       vrm.scene.position.z.toFixed(2) +
-
-      "\n\nHIPS\n" +
-      vrm.humanoid.getNormalizedBoneNode('hips')?.position.x.toFixed(2) + ", " +
-      vrm.humanoid.getNormalizedBoneNode('hips')?.position.y.toFixed(2) + ", " +
-      vrm.humanoid.getNormalizedBoneNode('hips')?.position.z.toFixed(2);
-
+      '\n\nHIPS\n' +
+      vrm.humanoid.getNormalizedBoneNode('hips')?.position.x.toFixed(2) +
+      ', ' +
+      vrm.humanoid.getNormalizedBoneNode('hips')?.position.y.toFixed(2) +
+      ', ' +
+      vrm.humanoid.getNormalizedBoneNode('hips')?.position.z.toFixed(2)
   }
 }

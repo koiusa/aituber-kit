@@ -184,9 +184,7 @@ const Voice = () => {
                     label="https://www.ah-soft.com/voice/"
                   />
                 </div>
-                <div className="mt-4 font-bold">
-                  {t('VoicePeakServerUrl')}
-                </div>
+                <div className="mt-4 font-bold">{t('VoicePeakServerUrl')}</div>
                 <div className="mt-2">
                   <input
                     className="text-ellipsis px-4 py-2 w-full bg-white hover:bg-white-hover rounded-lg"
@@ -321,8 +319,7 @@ const Voice = () => {
                     }}
                   />
                   <div className="select-none">
-                    {t('VoicePeakIntonationScale')}:{' '}
-                    {voicepeakIntonationScale}
+                    {t('VoicePeakIntonationScale')}: {voicepeakIntonationScale}
                   </div>
                   <input
                     type="range"
@@ -338,8 +335,7 @@ const Voice = () => {
                     }}
                   />
                   <div className="select-none">
-                    {t('PreSilenceDuration')}:{' '}
-                    {voicepeakPrePhonemeLength}{' '}
+                    {t('PreSilenceDuration')}: {voicepeakPrePhonemeLength}{' '}
                   </div>
                   <input
                     type="range"

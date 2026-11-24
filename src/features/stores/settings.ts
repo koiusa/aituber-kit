@@ -468,7 +468,8 @@ const getInitialValuesFromEnv = (): SettingsState => ({
     1.0,
   voicepeakServerUrl: '',
   voicepeakTempoDynamics:
-    parseFloat(process.env.NEXT_PUBLIC_VOICEPEAK_TEMPO_DYNAMICS || '1.0') || 1.0,
+    parseFloat(process.env.NEXT_PUBLIC_VOICEPEAK_TEMPO_DYNAMICS || '1.0') ||
+    1.0,
   voicepeakPrePhonemeLength:
     parseFloat(process.env.NEXT_PUBLIC_VOICEPEAK_PRE_PHONEME_LENGTH || '0.1') ||
     0.1,
